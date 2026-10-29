@@ -11,7 +11,9 @@ with sync_playwright() as p:
  ca=b.new_context(viewport={'width':1440,'height':1000});cb=b.new_context(viewport={'width':390,'height':844},is_mobile=True,has_touch=True)
  server.install(ca,'a');server.install(cb,'b');a=ca.new_page();c=cb.new_page();errors=[]
  for page in [a,c]:page.on('pageerror',lambda e:errors.append(str(e)));page.goto(server.URL)
- uid=server.IDS['one@test.example'];server.login(a,'one@test.example');server.settings(a)
+ uid=server.IDS['one@test.example'];server.login(a,'one@test.example');server.account(a)
+ expect(a.locator('.page-heading h1')).to_have_text('Личный кабинет')
+ assert a.locator('.cloud-strip').count()==0 and a.locator('.local-note').count()==0
  a.get_by_label('Ваше имя',exact=True).fill('Анна Иванова');a.get_by_role('button',name='Сохранить профиль',exact=True).click()
  expect(a.locator('.profile-form')).to_contain_text('Профиль сохранён.')
  expect(a.locator('.topbar .avatar')).to_have_text('АИ')
@@ -24,9 +26,11 @@ with sync_playwright() as p:
  path=server.profiles[uid]['avatar_path'];assert path.startswith(uid+'/')
  stored=Image.open(io.BytesIO(server.photos[path]));assert stored.size==(512,512);assert stored.format=='JPEG';assert not stored.getexif();assert 'Private source metadata' not in stored.info
  assert '/object/sign/' in a.locator('.topbar img').get_attribute('src')
- server.login(c,'one@test.example');server.settings(c)
+ server.login(c,'one@test.example');server.account(c)
  expect(c.get_by_label('Ваше имя',exact=True)).to_have_value('Анна Иванова');expect(c.locator('.topbar img')).to_be_visible()
- c.reload();server.settings(c);expect(c.get_by_label('Ваше имя',exact=True)).to_have_value('Анна Иванова');expect(c.locator('.topbar img')).to_be_visible()
+ server.settings(c);assert c.locator('.profile-form').count()==0
+ server.account(c);expect(c.get_by_label('Ваше имя',exact=True)).to_have_value('Анна Иванова')
+ c.reload();server.account(c);expect(c.get_by_label('Ваше имя',exact=True)).to_have_value('Анна Иванова');expect(c.locator('.topbar img')).to_be_visible()
  # Cancelled drafts never upload or change profile metadata.
  c.get_by_label('Ваше имя',exact=True).fill('Не сохранять');c.get_by_role('button',name='Отмена изменений',exact=True).click()
  expect(c.get_by_label('Ваше имя',exact=True)).to_have_value('Анна Иванова')

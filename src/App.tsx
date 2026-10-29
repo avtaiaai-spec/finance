@@ -309,10 +309,14 @@ function FinanceApp({ account }: { account: Account }) {
   }, [account.store]);
   const [demo, setDemo] = useState<Data | null>(null);
   const data = demo || real;
-  const [page, setPage] = useState("home");
+  const [page, setPage] = useState(account.justSignedIn ? "account" : "home");
+  const pageTitle =
+    page === "account"
+      ? "Личный кабинет"
+      : pages.find((p) => p[0] === page)?.[1];
   const [menu, setMenu] = useState(false);
   useEffect(() => {
-    if (account.recovery) setPage("settings");
+    if (account.recovery) setPage("account");
   }, [account.recovery]);
   useEffect(() => {
     if (!menu) return;
@@ -739,18 +743,12 @@ function FinanceApp({ account }: { account: Account }) {
             </button>
           ))}
         </nav>
-        <div className="local-note">
-          <I.ShieldCheck size={17} />{" "}
-          {account.user
-            ? "Личный кабинет · облако"
-            : "Данные на этом устройстве"}
-        </div>
       </aside>
       <main>
         <header className="topbar">
           <div className="breadcrumb">
             Личное пространство <I.ChevronRight size={14} />{" "}
-            <span>{pages.find((p) => p[0] === page)?.[1]}</span>
+            <span>{pageTitle}</span>
           </div>
           <div className="top-actions">
             <span className="date-top">{dateLabel(today())}</span>
@@ -765,9 +763,9 @@ function FinanceApp({ account }: { account: Account }) {
             </button>
             <button
               className="avatar"
-              aria-label="Открыть настройки"
+              aria-label="Открыть личный кабинет"
               title={profileName(account.user) || "Личный кабинет"}
-              onClick={() => go("settings")}
+              onClick={() => go("account")}
             >
               <Avatar user={account.user} url={account.avatarUrl} />
             </button>
@@ -812,15 +810,6 @@ function FinanceApp({ account }: { account: Account }) {
             </div>
           )}
           {storageError && <div className="banner danger">{storageError}</div>}
-          {account.store && !demo && (
-            <div className="cloud-strip" role="status">
-              <I.Cloud size={16} />
-              <span>{account.store.status}</span>
-              <button className="text-btn" onClick={() => go("settings")}>
-                Личный кабинет
-              </button>
-            </div>
-          )}
           {!demo && backupReminderDue(data, reminderToday) && (
             <section className="backup-reminder" role="status">
               <I.Bell size={23} />
@@ -857,12 +846,10 @@ function FinanceApp({ account }: { account: Account }) {
           <div className="page-heading">
             <div>
               <div className="eyebrow">ВАШЕ ФИНАНСОВОЕ СПОКОЙСТВИЕ</div>
-              <h1>
-                {page === "home"
-                  ? "Всё под контролем"
-                  : pages.find((p) => p[0] === page)?.[1]}
-              </h1>
-              {!["transactions", "categories", "settings"].includes(page) && (
+              <h1>{page === "home" ? "Всё под контролем" : pageTitle}</h1>
+              {!["transactions", "categories", "settings", "account"].includes(
+                page,
+              ) && (
                 <p>
                   {
                     (
@@ -1843,8 +1830,9 @@ function FinanceApp({ account }: { account: Account }) {
               </div>
             </>
           )}
-          {page === "settings" && (
-            <div className="settings-grid">
+          {page === "account" && (
+            <div className="account-page">
+              {" "}
               {demo ? (
                 <section className="card account-card">
                   <h2>Личный кабинет</h2>
@@ -1857,6 +1845,10 @@ function FinanceApp({ account }: { account: Account }) {
                   onChanged={() => updateCloudState((n) => n + 1)}
                 />
               )}
+            </div>
+          )}
+          {page === "settings" && (
+            <div className="settings-grid">
               <section className="card">
                 <h2>Внешний вид</h2>
                 <p>Уютно в любое время суток</p>

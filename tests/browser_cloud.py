@@ -89,11 +89,14 @@ def settings(pg):
 def home(pg):
  if pg.viewport_size['width']>680:pg.locator('.sidebar nav').get_by_role('button',name='Главная',exact=True).click()
  else:pg.locator('.bottom-nav').get_by_role('button',name='Главная',exact=True).click()
+def account(pg):
+ pg.get_by_role('button',name='Открыть личный кабинет',exact=True).click()
 def login(pg,email):
- settings(pg);pg.get_by_label('Электронная почта',exact=True).fill(email);pg.get_by_label('Пароль',exact=True).fill('Test-password-123');pg.get_by_role('button',name='Войти',exact=True).click()
- expect(pg.locator('.cloud-strip')).to_be_visible(timeout=10000)
-def synced(pg):expect(pg.locator('.cloud-strip')).to_contain_text('Все изменения в облаке',timeout=15000)
-def sync(pg):settings(pg);pg.get_by_role('button',name='Синхронизировать',exact=True).click();synced(pg)
+ account(pg);pg.get_by_label('Электронная почта',exact=True).fill(email);pg.get_by_label('Пароль',exact=True).fill('Test-password-123');pg.get_by_role('button',name='Войти',exact=True).click()
+ account(pg);expect(pg.locator('.account-email')).to_be_visible(timeout=10000)
+def synced(pg):
+ account(pg);expect(pg.locator('.sync-status')).to_contain_text('Все изменения в облаке',timeout=15000)
+def sync(pg):account(pg);pg.get_by_role('button',name='Синхронизировать',exact=True).click();synced(pg)
 def add(pg,kind,amount):
  home(pg)
  if pg.viewport_size['width']>680:pg.locator('.heading-actions').get_by_role('button',name=kind,exact=True).click()
@@ -108,7 +111,7 @@ if __name__=='__main__':
      install(ca,'a');install(cb,'b');a=ca.new_page();c=cb.new_page()
      for pg in [a,c]:pg.on('pageerror',lambda e:errors.append(str(e)));pg.goto(URL)
      add(a,'Расход',100);guest=a.evaluate("JSON.parse(localStorage.getItem('calm-finance-v1'))")
-     login(a,'one@test.example');settings(a)
+     login(a,'one@test.example');account(a)
      a.once('dialog',lambda d:d.accept());a.get_by_role('button',name='Перенести мои данные в облако',exact=True).click();synced(a)
      assert len(rows[IDS['one@test.example']]['payload']['transactions'])==1
      assert a.evaluate("JSON.parse(localStorage.getItem('calm-finance-v1'))")==guest
@@ -124,21 +127,21 @@ if __name__=='__main__':
      home(a);a.locator('.transaction').filter(has_text='Продукты').first.click()
      a.once('dialog',lambda d:d.accept());a.get_by_role('button',name='Удалить операцию',exact=True).click();synced(a)
      assert len(rows[IDS['one@test.example']]['payload']['transactions'])==3
-     settings(a);a.get_by_text('Восстановление из облачной истории',exact=True).click()
+     account(a);a.get_by_text('Восстановление из облачной истории',exact=True).click()
      a.get_by_role('button',name='Показать последние версии',exact=True).click()
      a.locator('.account-card details .setting-link').first.click()
      a.once('dialog',lambda d:d.accept());a.get_by_role('button',name='Восстановить эту версию',exact=True).click();synced(a)
      assert len(rows[IDS['one@test.example']]['payload']['transactions'])==4
      assert a.evaluate("JSON.parse(localStorage.getItem('calm-finance-v1'))")==guest
      sync(c)
-     settings(c);c.get_by_role('button',name='Выйти',exact=True).click();expect(c.locator('.cloud-strip')).to_have_count(0)
+     account(c);c.get_by_role('button',name='Выйти',exact=True).click();expect(c.locator('.account-email')).to_have_count(0)
      login(c,'two@test.example');add(c,'Расход',900);synced(c)
      assert len(rows[IDS['two@test.example']]['payload']['transactions'])==1
      assert len(rows[IDS['one@test.example']]['payload']['transactions'])==4
      c.reload();synced(c)
      # Two tabs in the same browser must not overwrite one offline queue.
      second=ca.new_page();second.on('pageerror',lambda e:errors.append(str(e)));second.goto(URL)
-     expect(second.locator('.cloud-strip')).to_contain_text('другом окне',timeout=10000)
+     account(second);expect(second.locator('.sync-status')).to_contain_text('другом окне',timeout=10000)
      home(second);second.locator('.heading-actions').get_by_role('button',name='Расход',exact=True).click()
      second.get_by_label('Сумма, ₽',exact=True).fill('400')
      second.get_by_role('dialog').get_by_role('button',name='Продукты',exact=True).click()

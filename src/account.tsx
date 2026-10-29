@@ -14,6 +14,7 @@ export type Account = {
   authError: string;
   finishRecovery: () => void;
   avatarUrl: string | null;
+  justSignedIn: boolean;
 };
 export function useAccount(): Account {
   const [user, setUser] = useState<User | null>(null),
@@ -21,6 +22,7 @@ export function useAccount(): Account {
     [recovery, setRecovery] = useState(false),
     [authError, setAuthError] = useState("");
   const identity = useRef<string | null>(null);
+  const [justSignedIn, setJustSignedIn] = useState(false);
   useEffect(() => {
     let active = true;
     supabase.auth
@@ -44,6 +46,9 @@ export function useAccount(): Account {
       });
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
       if (!active) return;
+      const changed = identity.current !== (session?.user.id || null);
+      if (event === "SIGNED_IN" && changed) setJustSignedIn(true);
+      if (event === "SIGNED_OUT") setJustSignedIn(false);
       identity.current = session?.user.id || null;
       setUser(session?.user || null);
       if (session) setAuthError("");
@@ -171,6 +176,7 @@ export function useAccount(): Account {
     authError,
     finishRecovery: () => setRecovery(false),
     avatarUrl,
+    justSignedIn,
   };
 }
 export function AccountPanel({
@@ -279,7 +285,7 @@ export function AccountPanel({
   };
   return (
     <section className="card account-card">
-      <h2>Личный кабинет</h2>
+      <h2>Учётная запись</h2>
       {account.user && store ? (
         <>
           <p className="account-email">{account.user.email}</p>

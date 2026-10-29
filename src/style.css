@@ -200,15 +200,6 @@ a {
   padding: 1px 5px;
   font-size: 10px;
 }
-.local-note {
-  display: flex;
-  gap: 7px;
-  align-items: center;
-  font-size: 9px;
-  color: var(--muted);
-  margin-top: 22px;
-  justify-content: center;
-}
 main {
   margin-left: 242px;
 }
@@ -1441,9 +1432,6 @@ dialog::backdrop {
     gap: 9px;
     padding-left: 9px;
   }
-  .local-note {
-    font-size: 8px;
-  }
   main {
     margin-left: 185px;
   }
@@ -2408,10 +2396,6 @@ html[data-palette="brown"][data-theme="dark"] {
   }
 }
 
-.sidebar > .local-note {
-  margin-top: auto;
-  padding-top: 22px;
-}
 .backup-reminder {
   display: flex;
   align-items: center;
@@ -2515,32 +2499,7 @@ html[data-palette="brown"][data-theme="dark"] {
 .cloud-conflict .btn {
   margin-top: 13px;
 }
-.cloud-strip {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  border-radius: 10px;
-  padding: 8px 13px;
-  margin-bottom: 20px;
-  color: var(--accent);
-  font-size: 11px;
-}
-.cloud-strip > span {
-  flex: 1;
-  overflow-wrap: anywhere;
-}
-.cloud-strip .text-btn {
-  white-space: nowrap;
-}
 @media (max-width: 680px) {
-  .cloud-strip {
-    flex-wrap: wrap;
-  }
-  .cloud-strip > span {
-    min-width: 170px;
-  }
   .account-actions .btn {
     min-height: 44px;
   }
@@ -2618,4 +2577,12 @@ html[data-palette="brown"][data-theme="dark"] {
     width: 72px;
     height: 72px;
   }
+}
+
+.account-page {
+  max-width: 900px;
+  margin: 0 auto;
+}
+.account-page .account-card {
+  width: 100%;
 }
