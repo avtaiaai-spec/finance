@@ -58,7 +58,11 @@ export type Data = {
   transactions: Transaction[];
   budgets: Budget[];
   goals: Goal[];
-  settings: { theme: "light" | "dark" | "system"; palette?: Palette };
+  settings: {
+    theme: "light" | "dark" | "system";
+    palette?: Palette;
+    lastExpenseDate?: string;
+  };
 };
 export const uid = () => crypto.randomUUID();
 export const today = () => localDate(new Date());
@@ -340,6 +344,11 @@ export function validateData(raw: unknown): Data {
     !Object.hasOwn(paletteNames, d.settings.palette)
   )
     throw Error("Неизвестная цветовая тема");
+  if (
+    d.settings.lastExpenseDate !== undefined &&
+    !isDate(d.settings.lastExpenseDate)
+  )
+    throw Error("Некорректная дата последнего расхода");
   const ids = new Set<string>();
   const id = (v: unknown) => {
     if (typeof v !== "string" || !v || ids.has(v))
@@ -436,6 +445,9 @@ export function validateData(raw: unknown): Data {
     settings: {
       theme: d.settings.theme,
       ...(d.settings.palette ? { palette: d.settings.palette } : {}),
+      ...(d.settings.lastExpenseDate
+        ? { lastExpenseDate: d.settings.lastExpenseDate }
+        : {}),
     },
   };
 }

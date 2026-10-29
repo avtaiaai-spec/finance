@@ -651,14 +651,6 @@ export default function App() {
             </button>
           ))}
         </nav>
-        <div className="sidebar-note">
-          <I.Sprout size={28} />
-          <strong>Шаг за шагом к большему</strong>
-          <p>
-            Ваши привычки сегодня —<br />
-            ваша свобода завтра.
-          </p>
-        </div>
         <div className="local-note">
           <I.ShieldCheck size={17} /> Данные только на устройстве
         </div>
@@ -2265,7 +2257,19 @@ function EditorModal({
   const [catId, setCatId] = useState(
     tx?.categoryId || budget?.categoryId || "",
   );
-  const [date, setDate] = useState(tx?.date || contribution?.date || today());
+  const defaultExpenseDate =
+    data.settings.lastExpenseDate ||
+    data.transactions.filter((t) => t.type === "expense" && !t.importKey).at(-1)
+      ?.date ||
+    today();
+  const [date, setDate] = useState(
+    tx?.date ||
+      contribution?.date ||
+      (editor.type === "transaction" && (editor.kind ?? "expense") === "expense"
+        ? defaultExpenseDate
+        : undefined) ||
+      today(),
+  );
   const [comment, setComment] = useState(
     tx?.comment || goal?.comment || contribution?.comment || "",
   );
@@ -2286,6 +2290,8 @@ function EditorModal({
   const setType = (v: Kind | "saving") => {
     setKind(v);
     setCatId("");
+    if (editor.type === "transaction" && !tx)
+      setDate(v === "expense" ? defaultExpenseDate : today());
   };
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -2313,6 +2319,8 @@ function EditorModal({
         next.transactions = tx
           ? data.transactions.map((x) => (x.id === tx.id ? t : x))
           : [...data.transactions, t];
+        if (!tx && kind === "expense")
+          next.settings = { ...data.settings, lastExpenseDate: date };
       } else if (editor.type === "category") {
         if (!name.trim()) throw Error("Укажите название");
         if (

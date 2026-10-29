@@ -200,23 +200,6 @@ a {
   padding: 1px 5px;
   font-size: 10px;
 }
-.sidebar-note {
-  margin-top: auto;
-  background: var(--bg);
-  padding: 20px 17px;
-  border: 1px solid var(--border);
-  border-radius: 13px;
-  color: var(--accent);
-}
-.sidebar-note strong {
-  display: block;
-  font-size: 11px;
-  margin: 12px 0 6px;
-}
-.sidebar-note p {
-  font-size: 11px;
-  line-height: 1.9;
-}
 .local-note {
   display: flex;
   gap: 7px;
@@ -1458,15 +1441,6 @@ dialog::backdrop {
     gap: 9px;
     padding-left: 9px;
   }
-  .sidebar-note {
-    padding: 16px 11px;
-  }
-  .sidebar-note strong {
-    font-size: 10px;
-  }
-  .sidebar-note p {
-    font-size: 10px;
-  }
   .local-note {
     font-size: 8px;
   }
@@ -2432,4 +2406,9 @@ html[data-palette="brown"][data-theme="dark"] {
     margin-top: max(12px, env(safe-area-inset-top, 0px));
     margin-bottom: max(12px, env(safe-area-inset-bottom, 0px));
   }
+}
+
+.sidebar > .local-note {
+  margin-top: auto;
+  padding-top: 22px;
 }
