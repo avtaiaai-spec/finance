@@ -22,6 +22,14 @@
     <script>
       try {
         let d = JSON.parse(localStorage.getItem("calm-finance-v1") || "null");
+        const appearance = JSON.parse(
+          localStorage.getItem("calm-finance-appearance") || "null",
+        );
+        if (
+          appearance &&
+          ["light", "dark", "system"].includes(appearance.theme)
+        )
+          d = { settings: appearance };
         document.documentElement.dataset.palette = [
           "green",
           "pink",

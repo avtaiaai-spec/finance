@@ -63,6 +63,8 @@ import {
   startingCents,
 } from "./model";
 import { parseCoinBox, planCoinBox, type CoinBoxFile } from "./coinbox";
+import { useAccount, AccountPanel, type Account } from "./account";
+import { equal as sameFinanceData } from "./cloud-merge";
 const pages = [
   ["home", "Главная", "LayoutDashboard"],
   ["transactions", "Операции", "ArrowLeftRight"],
@@ -280,13 +282,37 @@ type Editor =
   | { type: "contribution"; goal: Goal; item?: Contribution }
   | null;
 export default function App() {
-  const [boot] = useState(load);
+  const account = useAccount();
+  if (account.loading)
+    return (
+      <div className="account-loading" role="status">
+        Открываем личное пространство…
+      </div>
+    );
+  return <FinanceApp key={account.user?.id || "local"} account={account} />;
+}
+function FinanceApp({ account }: { account: Account }) {
+  const [boot] = useState(() => account.store?.read() || load());
   const [real, setReal] = useState<Data>(boot.data);
   const [storageError, setStorageError] = useState(boot.error);
+  const [, updateCloudState] = useState(0);
+  useEffect(() => {
+    if (!account.store) return;
+    const update = () => {
+      setReal(account.store!.data);
+      setStorageError(account.store!.error);
+      updateCloudState((n) => n + 1);
+    };
+    update();
+    return account.store.subscribe(update);
+  }, [account.store]);
   const [demo, setDemo] = useState<Data | null>(null);
   const data = demo || real;
   const [page, setPage] = useState("home");
   const [menu, setMenu] = useState(false);
+  useEffect(() => {
+    if (account.recovery) setPage("settings");
+  }, [account.recovery]);
   useEffect(() => {
     if (!menu) return;
     const close = (e: KeyboardEvent) => {
@@ -385,7 +411,8 @@ export default function App() {
     try {
       if (storageError)
         throw Error("Сначала восстановите повреждённые данные в настройках");
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      if (account.store) account.store.update(next);
+      else localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
       setReal(next);
       return true;
     } catch (e) {
@@ -406,7 +433,13 @@ export default function App() {
     }
   };
   useEffect(() => {
-    if (demo || storageError || real.settings.backupReminder) return;
+    if (
+      demo ||
+      storageError ||
+      real.settings.backupReminder ||
+      (account.store && !account.store.canWrite)
+    )
+      return;
     if (
       !real.transactions.length &&
       !real.goals.length &&
@@ -428,6 +461,15 @@ export default function App() {
     const apply = () => {
       document.documentElement.dataset.palette =
         data.settings.palette ?? "green";
+      try {
+        localStorage.setItem(
+          "calm-finance-appearance",
+          JSON.stringify({
+            theme: data.settings.theme,
+            palette: data.settings.palette ?? "green",
+          }),
+        );
+      } catch {}
       document.documentElement.dataset.theme =
         data.settings.theme === "system"
           ? m.matches
@@ -697,7 +739,10 @@ export default function App() {
           ))}
         </nav>
         <div className="local-note">
-          <I.ShieldCheck size={17} /> Данные только на устройстве
+          <I.ShieldCheck size={17} />{" "}
+          {account.user
+            ? "Личный кабинет · облако"
+            : "Данные на этом устройстве"}
         </div>
       </aside>
       <main>
@@ -765,6 +810,15 @@ export default function App() {
             </div>
           )}
           {storageError && <div className="banner danger">{storageError}</div>}
+          {account.store && !demo && (
+            <div className="cloud-strip" role="status">
+              <I.Cloud size={16} />
+              <span>{account.store.status}</span>
+              <button className="text-btn" onClick={() => go("settings")}>
+                Личный кабинет
+              </button>
+            </div>
+          )}
           {!demo && backupReminderDue(data, reminderToday) && (
             <section className="backup-reminder" role="status">
               <I.Bell size={23} />
@@ -1789,6 +1843,18 @@ export default function App() {
           )}
           {page === "settings" && (
             <div className="settings-grid">
+              {demo ? (
+                <section className="card account-card">
+                  <h2>Личный кабинет</h2>
+                  <p>Выйдите из деморежима, чтобы управлять своим аккаунтом.</p>
+                </section>
+              ) : (
+                <AccountPanel
+                  account={account}
+                  current={real}
+                  onChanged={() => updateCloudState((n) => n + 1)}
+                />
+              )}
               <section className="card">
                 <h2>Внешний вид</h2>
                 <p>Уютно в любое время суток</p>
@@ -1905,9 +1971,9 @@ export default function App() {
               <section className="card">
                 <h2>Ваши данные — у вас</h2>
                 <p>
-                  Финансовая история хранится в этом браузере. Сохраняйте
-                  резервные копии: очистка браузера удалит данные. Синхронизации
-                  между устройствами нет.
+                  {account.user
+                    ? "История этого аккаунта сохраняется на устройстве и синхронизируется с Supabase. Проверяйте статус синхронизации и сохраняйте JSON-копии."
+                    : "Без входа история хранится только в этом браузере. Для синхронизации войдите в личный кабинет. Очистка браузера удалит локальные данные — сохраняйте JSON-копии."}
                 </p>
                 <h3>Напоминание о резервной копии</h3>
                 <label className="check">
@@ -2032,7 +2098,9 @@ export default function App() {
                     onClick={() =>
                       download(
                         "Необработанные-данные.txt",
-                        localStorage.getItem(STORAGE_KEY) || "",
+                        localStorage.getItem(
+                          account.store?.key || STORAGE_KEY,
+                        ) || "",
                         "text/plain",
                       )
                     }
@@ -2045,8 +2113,9 @@ export default function App() {
                   <div>
                     <strong>Личное остаётся личным</strong>
                     <p>
-                      Без регистрации, банковских подключений и передачи
-                      финансовых данных третьим сторонам.
+                      {account.user
+                        ? "Доступ к облачной истории разрешён только вашему аккаунту. Обработка облачных данных выполняется сервисом Supabase."
+                        : "Локальная история не отправляется в облако без вашего входа и подтверждения переноса. Банковских подключений нет."}
                     </p>
                   </div>
                 </div>
@@ -2055,14 +2124,21 @@ export default function App() {
                   onClick={() => {
                     if (
                       prompt(
-                        "Все личные данные будут удалены. Без резервной копии восстановление невозможно. Введите УДАЛИТЬ для подтверждения:",
+                        account.store && !demo
+                          ? "История аккаунта будет очищена на всех устройствах. Сначала скачайте JSON-копию. Введите УДАЛИТЬ для подтверждения:"
+                          : "Все локальные данные будут удалены. Без резервной копии восстановление невозможно. Введите УДАЛИТЬ для подтверждения:",
                       ) === "УДАЛИТЬ"
                     ) {
                       const d = initial();
                       if (demo) setDemo(d);
                       else {
                         try {
-                          localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
+                          if (account.store) account.store.update(d);
+                          else
+                            localStorage.setItem(
+                              STORAGE_KEY,
+                              JSON.stringify(d),
+                            );
                           setStorageError(null);
                           setReal(d);
                         } catch {
@@ -2278,8 +2354,11 @@ export default function App() {
             лимитов и {pending.goals.length} целей.
           </p>
           <p className="danger">
-            Импорт полностью заменит текущие данные{demo ? " деморежима" : ""}.
-            Сначала сохраните резервную копию.
+            Импорт полностью заменит текущие данные{demo ? " деморежима" : ""}
+            {account.user && !demo
+              ? ", а после синхронизации — историю на всех устройствах аккаунта"
+              : ""}
+            . Сначала сохраните резервную копию.
           </p>
           <div className="modal-actions">
             <button className="btn secondary" onClick={requestBackup}>
@@ -2295,7 +2374,9 @@ export default function App() {
                   return;
                 }
                 try {
-                  localStorage.setItem(STORAGE_KEY, JSON.stringify(pending));
+                  if (account.store) account.store.update(pending);
+                  else
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(pending));
                   setReal(pending);
                   setStorageError(null);
                   setPending(null);
@@ -2339,7 +2420,7 @@ export default function App() {
                   setBackupConfirmation(null);
                   return;
                 }
-                if (data !== backupConfirmation.source) {
+                if (!sameFinanceData(data, backupConfirmation.source)) {
                   notify(
                     "После выгрузки данные изменились. Скачайте свежую копию.",
                   );
