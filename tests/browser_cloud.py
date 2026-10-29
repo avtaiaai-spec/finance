@@ -36,6 +36,7 @@ def install(context,label):
   if path=='/auth/v1/logout':return reply({})
   if path=='/auth/v1/user':
    if req.method=='PUT':
+    if fail_metadata=='abort':return route.abort('internetdisconnected')
     if fail_metadata:return reply({'message':'temporary update failure'},500)
     profiles.setdefault(uid,{}).update(body.get('data',{}))
    return reply(user(uid))

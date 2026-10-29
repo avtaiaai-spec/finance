@@ -37,6 +37,13 @@ with sync_playwright() as p:
  expect(a.locator('.profile-form')).to_contain_text('Не удалось сохранить профиль')
  assert server.profiles[uid]['avatar_path']==path and set(server.photos)=={path}
  server.fail_metadata=False;a.get_by_role('button',name='Отмена изменений',exact=True).click()
+ server.fail_metadata='abort'
+ a.get_by_label('Фото профиля',exact=True).set_input_files(fixture('#448866'));expect(a.get_by_alt_text('Предпросмотр фото',exact=True)).to_be_visible()
+ a.get_by_role('button',name='Сохранить профиль',exact=True).click()
+ expect(a.locator('.profile-form')).to_contain_text('Не удалось подтвердить сохранение профиля')
+ assert server.profiles[uid]['avatar_path']==path and set(server.photos)=={path}
+ server.fail_metadata=False;a.get_by_role('button',name='Отмена изменений',exact=True).click()
+
  # Replacing a photo removes its predecessor only after metadata is saved.
  a.get_by_label('Фото профиля',exact=True).set_input_files(fixture('#448866'));expect(a.get_by_alt_text('Предпросмотр фото',exact=True)).to_be_visible()
  a.get_by_role('button',name='Сохранить профиль',exact=True).click();expect(a.locator('.profile-form')).to_contain_text('Профиль сохранён.')

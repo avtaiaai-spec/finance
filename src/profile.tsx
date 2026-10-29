@@ -231,7 +231,10 @@ export async function saveProfile(
       }
     }
     window.dispatchEvent(new Event("finance-profile-updated"));
-    throw e;
+    if (e instanceof Error && /[А-Яа-яЁё]/.test(e.message)) throw e;
+    throw Error(
+      "Не удалось подтвердить сохранение профиля. Проверьте интернет и повторите попытку.",
+    );
   }
 }
 export function ProfileForm({
