@@ -913,10 +913,6 @@ export default function App() {
                       <strong>{money(expense)}</strong>
                     </div>
                   </div>
-                  <div className="hero-period-net">
-                    <span>Доходы минус расходы</span>
-                    <strong>{money(income - expense)}</strong>
-                  </div>
                 </section>
                 <section className="card limits-home">
                   <div className="section-head">
@@ -2288,6 +2284,7 @@ function EditorModal({
   const linked =
     cat && (used || data.budgets.some((b) => b.categoryId === cat.id));
   const setType = (v: Kind | "saving") => {
+    if (v === kind) return;
     setKind(v);
     setCatId("");
     if (editor.type === "transaction" && !tx)
@@ -2307,20 +2304,26 @@ function EditorModal({
           (chosen.archived && tx?.categoryId !== chosen.id)
         )
           throw Error("Выберите доступную категорию");
+        // Read the committed native date too: iOS date pickers may finish editing on submit.
+        const nativeDate = new FormData(e.currentTarget as HTMLFormElement).get(
+          "entryDate",
+        );
+        const expenseDate =
+          typeof nativeDate === "string" && nativeDate ? nativeDate : date;
         const t: Transaction = {
           id: tx?.id || uid(),
           ...(tx?.importKey ? { importKey: tx.importKey } : {}),
           type: kind as Kind,
           amount: cents(amount),
           categoryId: catId,
-          date,
+          date: expenseDate,
           comment,
         };
         next.transactions = tx
           ? data.transactions.map((x) => (x.id === tx.id ? t : x))
           : [...data.transactions, t];
         if (!tx && kind === "expense")
-          next.settings = { ...data.settings, lastExpenseDate: date };
+          next.settings = { ...data.settings, lastExpenseDate: expenseDate };
       } else if (editor.type === "category") {
         if (!name.trim()) throw Error("Укажите название");
         if (
@@ -2518,6 +2521,8 @@ function EditorModal({
             <input
               required
               type="date"
+              name="entryDate"
+              onInput={(e) => setDate(e.currentTarget.value)}
               min={
                 editor.type === "contribution" ? editor.goal.start : undefined
               }
