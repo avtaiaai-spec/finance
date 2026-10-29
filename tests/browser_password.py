@@ -16,12 +16,30 @@ with sync_playwright() as p:
  expect(pg.locator('.page-heading h1')).to_have_text('Личный кабинет')
  expect(pg.get_by_role('heading',name='Новый пароль',exact=True)).to_be_visible()
  pg.reload();expect(pg.get_by_role('heading',name='Новый пароль',exact=True)).to_be_visible()
- pg.get_by_label('Пароль',exact=True).fill('Changed-password-123');pg.get_by_role('button',name='Сохранить пароль',exact=True).click()
+ assert pg.get_by_label('Текущий пароль',exact=True).count()==0
+ pg.get_by_label('Новый пароль',exact=True).fill('Changed-password-123');pg.get_by_role('button',name='Сохранить пароль',exact=True).click()
  expect(pg.locator('.account-message')).to_contain_text('Пароль обновлён')
  assert updates[-1]['password']=='Changed-password-123'
  pg.reload();server.account(pg);expect(pg.get_by_role('button',name='Изменить пароль',exact=True)).to_be_visible()
- pg.get_by_role('button',name='Изменить пароль',exact=True).click();pg.get_by_label('Пароль',exact=True).fill('Changed-password-456');pg.get_by_role('button',name='Сохранить пароль',exact=True).click()
+ pg.get_by_role('button',name='Изменить пароль',exact=True).click()
+ pg.get_by_label('Новый пароль',exact=True).fill('Changed-password-456')
+ before=len(updates)
+ pg.get_by_role('button',name='Сохранить пароль',exact=True).click()
+ assert len(updates)==before  # The required old password cannot be skipped.
+ def verify(route):
+  if route.request.method=='POST' and route.request.post_data_json.get('password')!='Changed-password-123':
+   return route.fulfill(status=400,headers={'Access-Control-Allow-Origin':'*','Content-Type':'application/json'},body=json.dumps({'error_code':'invalid_credentials','message':'Invalid login credentials'}))
+  route.fallback()
+ ctx.route(server.HOST+'/auth/v1/token?grant_type=password',verify)
+ pg.get_by_label('Текущий пароль',exact=True).fill('Wrong-password')
+ pg.get_by_role('button',name='Сохранить пароль',exact=True).click()
+ expect(pg.locator('.account-message')).to_contain_text('Текущий пароль неверный')
+ assert len(updates)==before
+ pg.get_by_label('Текущий пароль',exact=True).fill('Changed-password-123')
+ pg.get_by_role('button',name='Сохранить пароль',exact=True).click()
  expect(pg.locator('.account-message')).to_contain_text('Пароль обновлён')
+ expect(pg.locator('.account-email')).to_have_text('one@test.example')
+ assert len(updates)==before+1
  assert updates[-1]['password']=='Changed-password-456'
  assert pg.locator('.topbar .avatar').bounding_box()['width']==56
  ctx.close()

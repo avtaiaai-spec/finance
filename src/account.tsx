@@ -6,6 +6,7 @@ import {
   cloudRequest,
   recoveryLanding,
   authLinkError,
+  changePasswordWithCurrent,
 } from "./supabase";
 import { CloudStore, cloudError } from "./cloud-store";
 import { AUTH_REDIRECT } from "./cloud-config";
@@ -235,6 +236,7 @@ export function AccountPanel({
   );
   const [email, setEmail] = useState(""),
     [password, setPassword] = useState(""),
+    [currentPassword, setCurrentPassword] = useState(""),
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState("");
   const [history, setHistory] = useState<
@@ -285,9 +287,22 @@ export function AccountPanel({
         );
       }
       if (mode === "password") {
-        const r = await supabase.auth.updateUser({ password });
-        if (r.error) throw r.error;
+        if (account.recovery) {
+          const r = await supabase.auth.updateUser({ password });
+          if (r.error) throw r.error;
+        } else {
+          if (!account.user || !currentPassword) {
+            setMessage("Введите текущий пароль.");
+            return;
+          }
+          await changePasswordWithCurrent(
+            account.user,
+            currentPassword,
+            password,
+          );
+        }
         setPassword("");
+        setCurrentPassword("");
         setMode("login");
         setMessage(
           "Пароль обновлён. Теперь можно войти с телефона с новым паролем.",
@@ -298,7 +313,9 @@ export function AccountPanel({
       const code = (e as { code?: string })?.code;
       setMessage(
         code === "invalid_credentials"
-          ? "Неверная почта или пароль."
+          ? mode === "password"
+            ? "Текущий пароль неверный."
+            : "Неверная почта или пароль."
           : code === "email_not_confirmed"
             ? "Сначала подтвердите адрес по ссылке в письме."
             : code === "over_email_send_rate_limit"
@@ -340,6 +357,7 @@ export function AccountPanel({
             onClick={() => {
               setMode("password");
               setPassword("");
+              setCurrentPassword("");
               setMessage("");
             }}
           >
@@ -589,9 +607,21 @@ export function AccountPanel({
               />
             </label>
           )}
+          {mode === "password" && !account.recovery && (
+            <label className="field">
+              <span>Текущий пароль</span>
+              <input
+                required
+                type="password"
+                autoComplete="current-password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+              />
+            </label>
+          )}
           {mode !== "reset" && (
             <label className="field">
-              <span>Пароль</span>
+              <span>{mode === "password" ? "Новый пароль" : "Пароль"}</span>
               <input
                 required
                 type="password"

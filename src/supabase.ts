@@ -19,6 +19,35 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     flowType: landing.searchParams.has("code") ? "pkce" : "implicit",
   },
 });
+// Check the old password in an isolated, non-persistent session. This neither
+// replaces the active account nor depends on a project-wide Auth setting.
+export async function changePasswordWithCurrent(
+  owner: User,
+  currentPassword: string,
+  password: string,
+) {
+  if (!owner.email) throw Error("У аккаунта нет почты");
+  const verification = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  });
+  try {
+    const signedIn = await verification.auth.signInWithPassword({
+      email: owner.email,
+      password: currentPassword,
+    });
+    if (signedIn.error) throw signedIn.error;
+    if (signedIn.data.user?.id !== owner.id) throw Error("Аккаунт изменился");
+    const changed = await verification.auth.updateUser({ password });
+    if (changed.error) throw changed.error;
+  } finally {
+    // Only revoke the short-lived verification session; keep the app signed in.
+    await verification.auth.signOut({ scope: "local" }).catch(() => {});
+  }
+}
 export async function cloudRequest(user: User, path: string, body?: unknown) {
   const { data, error } = await supabase.auth.getSession();
   if (error || data.session?.user.id !== user.id)
