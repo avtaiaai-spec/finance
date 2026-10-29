@@ -9,6 +9,7 @@ export type Category = {
   archived: boolean;
 };
 export type Transaction = {
+  importKey?: string;
   id: string;
   type: Kind;
   amount: number;
@@ -342,6 +343,10 @@ export function validateData(raw: unknown): Data {
       !amount(t.amount) ||
       !isDate(t.date) ||
       !text(t.comment) ||
+      (t.importKey !== undefined &&
+        (typeof t.importKey !== "string" ||
+          !t.importKey.startsWith("coinbox:") ||
+          t.importKey.length > 22000)) ||
       cat(t.categoryId)?.type !== t.type
     )
       throw Error("Некорректная операция");

@@ -2022,3 +2022,63 @@ dialog::backdrop {
   font-size: 12px;
   font-weight: 500;
 }
+.csv-error {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--expense);
+  font-size: 12px;
+}
+.csv-filename {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  margin-bottom: 15px;
+}
+.csv-totals {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  padding: 17px 0;
+}
+.csv-totals small,
+.csv-totals strong {
+  display: block;
+}
+.csv-totals strong {
+  font-family: Manrope;
+  font-size: 22px;
+  margin-top: 5px;
+}
+.csv-preview-heading {
+  margin: 20px 0 10px;
+}
+.csv-preview-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.csv-preview-row > span {
+  min-width: 0;
+}
+.csv-preview-row small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.csv-preview-row > strong {
+  white-space: nowrap;
+}
+.csv-preview {
+  max-height: 280px;
+  overflow: auto;
+}
+@media (max-width: 400px) {
+  .csv-totals strong {
+    font-size: 18px;
+  }
+  .csv-preview-row {
+    font-size: 11px;
+  }
+}

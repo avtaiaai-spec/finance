@@ -74,10 +74,10 @@ with sync_playwright() as p:
     assert backup['transactions']==original['transactions']
     with page.expect_download() as dl:page.get_by_role('button',name='Экспорт операций в CSV',exact=True).click()
     assert 'Покупки на ужин' in open(dl.value.path(),encoding='utf-8-sig').read()
-    page.locator('input[type=file]').set_input_files({'name':'bad.json','mimeType':'application/json','buffer':b'{"wrong":true}'})
+    page.locator('input[type=file][accept=".json,application/json"]').set_input_files({'name':'bad.json','mimeType':'application/json','buffer':b'{"wrong":true}'})
     assert state()==original
     copy=json.dumps(backup,ensure_ascii=False).encode()
-    page.locator('input[type=file]').set_input_files({'name':'backup.json','mimeType':'application/json','buffer':copy})
+    page.locator('input[type=file][accept=".json,application/json"]').set_input_files({'name':'backup.json','mimeType':'application/json','buffer':copy})
     expect(page.get_by_role('dialog')).to_contain_text('3 операций')
     page.get_by_role('button',name='Заменить данные',exact=True).click()
     assert state()==original

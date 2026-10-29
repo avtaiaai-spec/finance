@@ -2,6 +2,7 @@ import {
   useEffect,
   useRef,
   useState,
+  useMemo,
   useId,
   Children,
   isValidElement,
@@ -54,6 +55,7 @@ import {
   download,
   STORAGE_KEY,
 } from "./model";
+import { parseCoinBox, planCoinBox, type CoinBoxFile } from "./coinbox";
 const pages = [
   ["home", "Главная", "LayoutDashboard"],
   ["transactions", "Операции", "ArrowLeftRight"],
@@ -297,6 +299,13 @@ export default function App() {
   const [sector, setSector] = useState<string | null>(null);
   const [granularity, setGranularity] = useState("day");
   const file = useRef<HTMLInputElement>(null);
+  const csvFile = useRef<HTMLInputElement>(null);
+  const [coinbox, setCoinbox] = useState<CoinBoxFile | null>(null);
+  const [csvError, setCsvError] = useState("");
+  const importPlan = useMemo(
+    () => (coinbox ? planCoinBox(data, coinbox) : null),
+    [data, coinbox],
+  );
   const notify = (s: string) => setToast(s);
   useEffect(() => {
     if (toast) {
@@ -1736,6 +1745,42 @@ export default function App() {
                   </span>
                   <I.ArrowUpRight size={17} />
                 </button>
+                <button
+                  className="setting-link"
+                  onClick={() => csvFile.current?.click()}
+                >
+                  <span>
+                    <I.FileUp size={19} />
+                    Импорт из CoinBox CSV
+                  </span>
+                  <I.ArrowUpRight size={17} />
+                </button>
+                <input
+                  type="file"
+                  aria-label="Файл CoinBox CSV"
+                  accept=".csv,text/csv"
+                  hidden
+                  ref={csvFile}
+                  onChange={async (e) => {
+                    const f = e.target.files?.[0];
+                    e.target.value = "";
+                    if (!f) return;
+                    try {
+                      if (f.size > 20 * 1024 * 1024)
+                        throw Error("Файл больше 20 МБ");
+                      const text = new TextDecoder("utf-8", {
+                        fatal: true,
+                      }).decode(await f.arrayBuffer());
+                      setCoinbox(parseCoinBox(text, f.name));
+                    } catch (err) {
+                      setCsvError(
+                        err instanceof Error
+                          ? err.message
+                          : "Не удалось прочитать CSV",
+                      );
+                    }
+                  }}
+                />
                 <input
                   type="file"
                   accept=".json,application/json"
@@ -1888,6 +1933,106 @@ export default function App() {
           notify={notify}
         />
       )}{" "}
+      {csvError && (
+        <Modal title="Не удалось загрузить CSV" onClose={() => setCsvError("")}>
+          <p className="csv-error" role="alert">
+            {csvError}
+          </p>
+          <div className="modal-actions">
+            <button className="btn" onClick={() => setCsvError("")}>
+              Понятно
+            </button>
+          </div>
+        </Modal>
+      )}
+      {coinbox && importPlan && (
+        <Modal title="Импорт из CoinBox" onClose={() => setCoinbox(null)}>
+          <p className="csv-filename">{coinbox.name}</p>
+          <p>
+            Найдено: {coinbox.rows.length} операций. Будет добавлено:{" "}
+            {importPlan.transactions.length}. Уже загружено:{" "}
+            {importPlan.duplicates}.
+          </p>
+          <p className="muted">
+            Период: {[...coinbox.rows].map((r) => r.date).sort()[0]} —{" "}
+            {[...coinbox.rows]
+              .map((r) => r.date)
+              .sort()
+              .at(-1)}
+          </p>
+          <div className="csv-totals">
+            <div>
+              <small>Добавляемые доходы</small>
+              <strong className="income">
+                {money(sum(importPlan.transactions, "income"))}
+              </strong>
+            </div>
+            <div>
+              <small>Добавляемые расходы</small>
+              <strong>{money(sum(importPlan.transactions, "expense"))}</strong>
+            </div>
+          </div>
+          <p>
+            Новых категорий: {importPlan.newCategories.length}
+            {importPlan.newCategories.length > 0
+              ? ` — ${importPlan.newCategories.map((c) => c.name).join(", ")}`
+              : ""}
+            .
+          </p>
+          <p className="muted">
+            Операции добавятся к вашей истории{demo ? " в деморежиме" : ""}.
+            Лимиты, цели и настройки сохранятся. Категории совпадают по названию
+            и типу, новые создаются автоматически. Даты сохраняются без сдвига
+            часового пояса.
+          </p>
+          <h3 className="csv-preview-heading">Предпросмотр первых записей</h3>
+          <div className="csv-preview">
+            {coinbox.rows.slice(0, 6).map((r) => (
+              <div className="csv-preview-row" key={r.importKey}>
+                <span>
+                  <strong>{r.category}</strong>
+                  <small>
+                    {dateLabel(r.date)}
+                    {r.comment ? ` · ${r.comment}` : ""}
+                  </small>
+                </span>
+                <strong className={r.type === "income" ? "income" : ""}>
+                  {r.type === "income" ? "+" : "−"}
+                  {money(r.amount)}
+                </strong>
+              </div>
+            ))}
+          </div>
+          <p className="muted">
+            Повторная загрузка той же выгрузки не добавит дубликаты. Операции,
+            внесённые вручную, не считаются дубликатами автоматически. Время из
+            CSV используется для распознавания повторов; в истории отображается
+            дата.
+          </p>
+          <div className="modal-actions">
+            <button className="btn secondary" onClick={() => backup(data)}>
+              Скачать текущую копию
+            </button>
+            <button
+              className="btn"
+              disabled={
+                !importPlan.transactions.length || (!!storageError && !demo)
+              }
+              onClick={() => {
+                const plan = planCoinBox(data, coinbox);
+                if (save(plan.next)) {
+                  setCoinbox(null);
+                  notify(
+                    `Импортировано операций: ${plan.transactions.length}. Пропущено повторов: ${plan.duplicates}.`,
+                  );
+                }
+              }}
+            >
+              Добавить операции ({importPlan.transactions.length})
+            </button>
+          </div>
+        </Modal>
+      )}
       {pending && (
         <Modal title="Восстановить данные?" onClose={() => setPending(null)}>
           <p>
@@ -2025,6 +2170,7 @@ function EditorModal({
           throw Error("Выберите доступную категорию");
         const t: Transaction = {
           id: tx?.id || uid(),
+          ...(tx?.importKey ? { importKey: tx.importKey } : {}),
           type: kind as Kind,
           amount: cents(amount),
           categoryId: catId,
