@@ -55,8 +55,6 @@ import {
   download,
   STORAGE_KEY,
   cashBalance,
-  signedCents,
-  setCashBalance,
 } from "./model";
 import { parseCoinBox, planCoinBox, type CoinBoxFile } from "./coinbox";
 const pages = [
@@ -291,7 +289,6 @@ export default function App() {
   const selected: [string, string] = custom
     ? [from, to]
     : range(period, anchor);
-  const [cashEditor, setCashEditor] = useState(false);
   const cash = cashBalance(data);
   const [editor, setEditor] = useState<Editor>(null);
   const [toast, setToast] = useState("");
@@ -833,30 +830,13 @@ export default function App() {
                 <section className="hero">
                   <div className="hero-top">
                     <span>Остаток денег</span>
-                    <button
-                      className="hero-edit"
-                      aria-label="Настроить остаток"
-                      onClick={() => setCashEditor(true)}
-                    >
-                      <I.Pencil size={18} />
-                    </button>
+                    <I.Wallet size={22} />
                   </div>
-                  <div className="hero-number">
-                    {cash === null ? "— ₽" : money(cash)}
-                  </div>
+                  <div className="hero-number">{money(cash)}</div>
                   <div className="hero-change">
-                    {cash === null ? (
-                      <button
-                        className="hero-setup"
-                        onClick={() => setCashEditor(true)}
-                      >
-                        Указать, сколько денег сейчас <I.ArrowRight size={15} />
-                      </button>
-                    ) : (
-                      <span className="cash-asof">
-                        На сегодня, {dateLabel(today())} · все карты и наличные
-                      </span>
-                    )}
+                    <span className="cash-asof">
+                      За всю историю по {dateLabel(today())}
+                    </span>
                   </div>
                   <div className="hero-divider" />
                   <div className="hero-period-label">За выбранный период</div>
@@ -879,11 +859,8 @@ export default function App() {
                     <strong>{money(income - expense)}</strong>
                   </div>
                   <p className="hero-footnote">
-                    {cash === null
-                      ? "Укажите общую сумму денег, чтобы видеть остаток."
-                      : "Остаток рассчитан по вашим записям с " +
-                        dateLabel(data.cash!.date) +
-                        ". Будущие операции не включены."}
+                    Все внесённые доходы минус все расходы по сегодня. Будущие
+                    операции не включены.
                   </p>
                 </section>
                 <section className="card limits-home">
@@ -1705,14 +1682,10 @@ export default function App() {
                   ))}
                 </div>
                 <h3>Основные настройки</h3>
-                <button
-                  className="setting-link"
-                  onClick={() => setCashEditor(true)}
-                >
-                  <span>Остаток денег · карты и наличные</span>
-                  <strong>{cash === null ? "Указать" : money(cash)}</strong>
-                  <I.ChevronRight size={17} />
-                </button>
+                <div className="setting-row">
+                  <span>Остаток за всю историю</span>
+                  <strong>{money(cash)}</strong>
+                </div>
                 <div className="setting-row">
                   <span>Валюта</span>
                   <strong>Российский рубль · ₽</strong>
@@ -1966,18 +1939,6 @@ export default function App() {
           notify={notify}
         />
       )}{" "}
-      {cashEditor && (
-        <CashEditor
-          data={data}
-          onClose={() => setCashEditor(false)}
-          onSave={(next) => {
-            if (save(next)) {
-              setCashEditor(false);
-              notify("Остаток денег сохранён");
-            }
-          }}
-        />
-      )}
       {csvError && (
         <Modal title="Не удалось загрузить CSV" onClose={() => setCsvError("")}>
           <p className="csv-error" role="alert">
@@ -2681,118 +2642,6 @@ function EditorModal({
             )}
           </div>
         )}
-      </form>
-    </Modal>
-  );
-}
-
-function CashEditor({
-  data,
-  onClose,
-  onSave,
-}: {
-  data: Data;
-  onClose: () => void;
-  onSave: (d: Data) => void;
-}) {
-  const [mode, setMode] = useState<"current" | "opening">("current");
-  const current = cashBalance(data);
-  const [amount, setAmount] = useState(
-    current === null ? "" : amountInput(current),
-  );
-  const [date, setDate] = useState(data.cash?.date || today());
-  const [error, setError] = useState("");
-  return (
-    <Modal title="Остаток денег" onClose={onClose}>
-      <form
-        className="editor-form"
-        onSubmit={(e) => {
-          e.preventDefault();
-          try {
-            const d = mode === "current" ? today() : date;
-            if (d > today()) throw Error("Дата не может быть в будущем");
-            onSave(
-              setCashBalance(data, signedCents(amount), d, mode === "current"),
-            );
-          } catch (err) {
-            setError(err instanceof Error ? err.message : "Проверьте сумму");
-          }
-        }}
-      >
-        <p>
-          Общая сумма на всех ваших картах и наличными. Учитывайте только свои
-          деньги, без доступного кредитного лимита.
-        </p>
-        <div className="segmented type-switch">
-          <button
-            type="button"
-            className={mode === "current" ? "selected" : ""}
-            onClick={() => {
-              setMode("current");
-              setAmount(current === null ? "" : amountInput(current));
-            }}
-          >
-            Сколько денег сейчас
-          </button>
-          <button
-            type="button"
-            className={mode === "opening" ? "selected" : ""}
-            onClick={() => {
-              setMode("opening");
-              setAmount(data.cash ? amountInput(data.cash.opening) : "");
-            }}
-          >
-            На начало даты
-          </button>
-        </div>
-        <Field
-          label={
-            mode === "current" ? "Денег сейчас, ₽" : "Остаток на начало даты, ₽"
-          }
-        >
-          <input
-            required
-            autoFocus
-            inputMode="decimal"
-            value={amount}
-            placeholder="0,00"
-            onChange={(e) => setAmount(e.target.value)}
-          />
-        </Field>
-        {mode === "opening" && (
-          <Field label="Дата начала учёта">
-            <input
-              required
-              type="date"
-              max={today()}
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-            />
-          </Field>
-        )}
-        <p className="muted">
-          {mode === "current"
-            ? "Введите фактический остаток сейчас. Уже внесённые операции за сегодня учтены и повторно не вычтутся. Новые операции будут менять эту сумму."
-            : "Введите сумму, которая была до первой операции указанного дня. К ней прибавятся доходы и вычтутся расходы с этой даты по сегодня, включая этот день."}
-        </p>
-        <p className="muted">
-          Сохранение задаёт новую отправную сумму расчёта. Операции, категории,
-          лимиты и цели не изменяются. При загрузке старых операций проверьте
-          дату начала учёта. Банковской синхронизации нет.
-        </p>
-        {error && (
-          <p className="form-error" role="alert">
-            {error}
-          </p>
-        )}
-        <div className="modal-actions">
-          <button type="button" className="btn secondary" onClick={onClose}>
-            Отмена
-          </button>
-          <button className="btn" type="submit">
-            Сохранить остаток
-          </button>
-        </div>
       </form>
     </Modal>
   );

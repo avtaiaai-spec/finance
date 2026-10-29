@@ -465,27 +465,10 @@ export function csv(d: Data) {
   );
 }
 
-// Opening is the money available at the START of date; future entries are excluded.
-export function cashBalance(data: Data, asOf = today()): number | null {
-  if (!data.cash || data.cash.date > asOf) return null;
-  return data.cash.opening + cashMovement(data, data.cash.date, asOf);
-}
-export function cashMovement(data: Data, from: string, to: string): number {
+// The balance is the cumulative result of all recorded operations through asOf.
+// Legacy manual cash settings remain readable in backups but never affect it.
+export function cashBalance(data: Data, asOf = today()): number {
   return data.transactions
-    .filter((t) => t.date >= from && t.date <= to)
+    .filter((t) => t.date <= asOf)
     .reduce((n, t) => n + (t.type === "income" ? t.amount : -t.amount), 0);
-}
-export function signedCents(value: string): number {
-  const v = value.trim();
-  if (/^-?0([.,]0{1,2})?$/.test(v)) return 0;
-  return v.startsWith("-") ? -cents(v.slice(1)) : cents(v);
-}
-export function setCashBalance(
-  data: Data,
-  value: number,
-  date: string,
-  current = false,
-): Data {
-  const opening = current ? value - cashMovement(data, date, date) : value;
-  return validateData({ ...data, cash: { opening, date } });
 }
