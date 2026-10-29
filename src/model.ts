@@ -7,7 +7,7 @@ export const paletteNames: Record<Palette, string> = {
   brown: "Коричневая",
 };
 export type Kind = "income" | "expense";
-export type Period = "week" | "month" | "quarter" | "year";
+export type Period = "day" | "week" | "month" | "quarter" | "year";
 export type Category = {
   id: string;
   name: string;
@@ -43,7 +43,7 @@ export type Goal = {
   name: string;
   type: Kind | "saving";
   amount: number;
-  period: Exclude<Period, "week">;
+  period: Exclude<Period, "day" | "week">;
   start: string;
   end: string;
   comment: string;
@@ -97,6 +97,7 @@ export function cents(s: string) {
 }
 export const amountInput = (n: number) => (n / 100).toFixed(2);
 export const periodNames: Record<Period, string> = {
+  day: "День",
   week: "Неделя",
   month: "Месяц",
   quarter: "Квартал",
@@ -107,6 +108,7 @@ export function range(period: Period, anchor: string): [string, string] {
   let start: Date, end: Date;
   const y = d.getFullYear(),
     m = d.getMonth();
+  if (period === "day") return [anchor, anchor];
   if (period === "week") {
     start = new Date(y, m, d.getDate() - ((d.getDay() + 6) % 7));
     end = new Date(start);
@@ -123,7 +125,8 @@ export function range(period: Period, anchor: string): [string, string] {
 export function shift(period: Period, anchor: string, n: number) {
   const [s] = range(period, anchor),
     d = parseDate(s);
-  if (period === "week") d.setDate(d.getDate() + 7 * n);
+  if (period === "day") d.setDate(d.getDate() + n);
+  else if (period === "week") d.setDate(d.getDate() + 7 * n);
   else
     d.setMonth(
       d.getMonth() +
@@ -414,7 +417,7 @@ export function validateData(raw: unknown): Data {
     if (
       keys.has(k) ||
       !amount(b.amount) ||
-      !Object.keys(periodNames).includes(b.period) ||
+      !["week", "month", "quarter", "year"].includes(b.period) ||
       cat(b.categoryId)?.type !== "expense" ||
       typeof b.enabled !== "boolean"
     )

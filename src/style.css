@@ -2594,3 +2594,14 @@ html[data-palette="brown"][data-theme="dark"] {
   border-width: 2px;
   font-size: 18px;
 }
+
+@media (max-width: 680px) {
+  .period-toolbar > .segmented {
+    min-width: 0;
+  }
+  .period-toolbar > .segmented button {
+    padding: 8px 5px;
+    min-width: 0;
+    min-height: 44px;
+  }
+}

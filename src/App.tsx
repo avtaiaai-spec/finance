@@ -333,6 +333,7 @@ function FinanceApp({ account }: { account: Account }) {
   const [period, setPeriod] = useState<Period>("month");
   const [anchor, setAnchor] = useState(today());
   const [custom, setCustom] = useState(false);
+  const [dayPicker, setDayPicker] = useState(false);
   const [from, setFrom] = useState(range("month", today())[0]);
   const [to, setTo] = useState(today());
   const selected: [string, string] = custom
@@ -942,12 +943,14 @@ function FinanceApp({ account }: { account: Account }) {
                 <span>
                   {custom
                     ? `${dateLabel(from)} — ${dateLabel(to)}`
-                    : period === "month"
-                      ? parseDate(anchor).toLocaleDateString("ru-RU", {
-                          month: "long",
-                          year: "numeric",
-                        })
-                      : `${parseDate(selected[0]).toLocaleDateString("ru-RU")} — ${parseDate(selected[1]).toLocaleDateString("ru-RU")}`}
+                    : period === "day"
+                      ? dateLabel(anchor)
+                      : period === "month"
+                        ? parseDate(anchor).toLocaleDateString("ru-RU", {
+                            month: "long",
+                            year: "numeric",
+                          })
+                        : `${parseDate(selected[0]).toLocaleDateString("ru-RU")} — ${parseDate(selected[1]).toLocaleDateString("ru-RU")}`}
                 </span>
                 <button
                   className="icon-btn"
@@ -963,7 +966,11 @@ function FinanceApp({ account }: { account: Account }) {
                   <button
                     className="icon-btn"
                     aria-label="Выбрать даты"
-                    onClick={() => setCustom(!custom)}
+                    onClick={() =>
+                      period === "day" && !custom
+                        ? setDayPicker(!dayPicker)
+                        : setCustom(!custom)
+                    }
                   >
                     <I.CalendarDays size={18} />
                   </button>
@@ -978,6 +985,19 @@ function FinanceApp({ account }: { account: Account }) {
                   Сегодня
                 </button>
               </div>
+              {dayPicker && period === "day" && !custom && (
+                <div className="custom-dates">
+                  <Field label="Дата статистики">
+                    <input
+                      type="date"
+                      value={anchor}
+                      onChange={(e) => {
+                        if (e.target.value) setAnchor(e.target.value);
+                      }}
+                    />
+                  </Field>
+                </div>
+              )}
               {custom && (
                 <div className="custom-dates">
                   <Field label="С">
@@ -1736,6 +1756,7 @@ function FinanceApp({ account }: { account: Account }) {
                         isAnimationActive={false}
                         type="monotone"
                         dataKey="income"
+                        dot={!custom && period === "day" ? { r: 5 } : false}
                         stroke="var(--income)"
                         fill="url(#incomeGradient)"
                         strokeWidth={2.5}
@@ -1744,6 +1765,7 @@ function FinanceApp({ account }: { account: Account }) {
                         isAnimationActive={false}
                         type="monotone"
                         dataKey="expense"
+                        dot={!custom && period === "day" ? { r: 5 } : false}
                         stroke="var(--expense)"
                         fill="transparent"
                         strokeWidth={2.5}
@@ -2789,7 +2811,10 @@ function EditorModal({
               }}
             >
               {(Object.keys(periodNames) as Period[])
-                .filter((p) => editor.type !== "goal" || p !== "week")
+                .filter(
+                  (p) =>
+                    p !== "day" && (editor.type !== "goal" || p !== "week"),
+                )
                 .map((p) => (
                   <option key={p} value={p}>
                     {periodNames[p]}

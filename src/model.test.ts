@@ -29,6 +29,21 @@ test("календарные периоды и переходы года", () =>
   assert.equal(shift("month", "2026-01-31", -1), "2025-12-01");
   assert.equal(shift("quarter", "2026-11-30", 1), "2027-01-01");
 });
+test("дневной период: только выбранный день и переходы календаря", () => {
+  assert.deepEqual(range("day", "2026-10-29"), ["2026-10-29", "2026-10-29"]);
+  assert.equal(shift("day", "2026-01-01", -1), "2025-12-31");
+  assert.equal(shift("day", "2026-10-31", 1), "2026-11-01");
+  assert.equal(shift("day", "2024-02-28", 1), "2024-02-29");
+  assert.equal(shift("day", "2024-02-29", 1), "2024-03-01");
+  assert.equal(shift("day", "2026-03-29", 1), "2026-03-30");
+  const selected = range("day", "2026-10-29");
+  assert.deepEqual(
+    ["2026-10-28", "2026-10-29", "2026-10-30"].filter((d) =>
+      within(d, selected),
+    ),
+    ["2026-10-29"],
+  );
+});
 test("лимиты разных периодов независимы, доход не считается расходом", () => {
   const d = initial();
   d.transactions = [
