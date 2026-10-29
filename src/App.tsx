@@ -55,6 +55,7 @@ import {
   download,
   STORAGE_KEY,
   cashBalance,
+  startingCents,
 } from "./model";
 import { parseCoinBox, planCoinBox, type CoinBoxFile } from "./coinbox";
 const pages = [
@@ -290,6 +291,38 @@ export default function App() {
     ? [from, to]
     : range(period, anchor);
   const cash = cashBalance(data);
+  const [startingInput, setStartingInput] = useState<string | null>(() => {
+    const v = new URLSearchParams(location.hash.slice(1)).get("starting-money");
+    if (v === null) return null;
+    try {
+      startingCents(v);
+      return v;
+    } catch {
+      return null;
+    }
+  });
+  useEffect(() => {
+    const onHash = () => {
+      const v = new URLSearchParams(location.hash.slice(1)).get(
+        "starting-money",
+      );
+      if (v !== null) {
+        try {
+          startingCents(v);
+          setStartingInput(v);
+        } catch {}
+      }
+    };
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+  const openStarting = () =>
+    setStartingInput(amountInput(data.startingMoney ?? 0));
+  const closeStarting = () => {
+    setStartingInput(null);
+    if (location.hash.startsWith("#starting-money="))
+      history.replaceState(null, "", location.pathname + location.search);
+  };
   const [editor, setEditor] = useState<Editor>(null);
   const [toast, setToast] = useState("");
   const [search, setSearch] = useState("");
@@ -830,7 +863,13 @@ export default function App() {
                 <section className="hero">
                   <div className="hero-top">
                     <span>Остаток денег</span>
-                    <I.Wallet size={22} />
+                    <button
+                      className="hero-edit"
+                      aria-label="Начальные деньги"
+                      onClick={openStarting}
+                    >
+                      <I.Pencil size={18} />
+                    </button>
                   </div>
                   <div className="hero-number">{money(cash)}</div>
                   <div className="hero-change">
@@ -859,8 +898,9 @@ export default function App() {
                     <strong>{money(income - expense)}</strong>
                   </div>
                   <p className="hero-footnote">
-                    Все внесённые доходы минус все расходы по сегодня. Будущие
-                    операции не включены.
+                    Начальные деньги {money(data.startingMoney ?? 0)} + все
+                    доходы − все расходы по сегодня. Будущие операции не
+                    включены.
                   </p>
                 </section>
                 <section className="card limits-home">
@@ -1682,6 +1722,11 @@ export default function App() {
                   ))}
                 </div>
                 <h3>Основные настройки</h3>
+                <button className="setting-link" onClick={openStarting}>
+                  <span>Начальные деньги до первой операции</span>
+                  <strong>{money(data.startingMoney ?? 0)}</strong>
+                  <I.ChevronRight size={17} />
+                </button>
                 <div className="setting-row">
                   <span>Остаток за всю историю</span>
                   <strong>{money(cash)}</strong>
@@ -1939,6 +1984,19 @@ export default function App() {
           notify={notify}
         />
       )}{" "}
+      {startingInput !== null && (
+        <StartingMoneyModal
+          data={data}
+          initialValue={startingInput}
+          onClose={closeStarting}
+          onSave={(next) => {
+            if (save(next)) {
+              closeStarting();
+              notify("Начальная сумма сохранена. Остаток пересчитан.");
+            }
+          }}
+        />
+      )}
       {csvError && (
         <Modal title="Не удалось загрузить CSV" onClose={() => setCsvError("")}>
           <p className="csv-error" role="alert">
@@ -1990,6 +2048,10 @@ export default function App() {
             Лимиты, цели и настройки сохранятся. Категории совпадают по названию
             и типу, новые создаются автоматически. Даты сохраняются без сдвига
             часового пояса.
+          </p>
+          <p className="muted">
+            CSV содержит операции, но не начальный остаток. Деньги, которые были
+            до первой операции, можно указать на главной через карандаш.
           </p>
           <h3 className="csv-preview-heading">Предпросмотр первых записей</h3>
           <div className="csv-preview">
@@ -2642,6 +2704,90 @@ function EditorModal({
             )}
           </div>
         )}
+      </form>
+    </Modal>
+  );
+}
+
+function StartingMoneyModal({
+  data,
+  initialValue,
+  onClose,
+  onSave,
+}: {
+  data: Data;
+  initialValue: string;
+  onClose: () => void;
+  onSave: (d: Data) => void;
+}) {
+  const [value, setValue] = useState(initialValue);
+  const [error, setError] = useState("");
+  let parsed: number | null = null;
+  try {
+    parsed = startingCents(value);
+  } catch {}
+  const net = cashBalance(data) - (data.startingMoney ?? 0);
+  return (
+    <Modal title="Начальные деньги" onClose={onClose}>
+      <form
+        className="editor-form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          try {
+            onSave(
+              validateData({ ...data, startingMoney: startingCents(value) }),
+            );
+          } catch (err) {
+            setError(err instanceof Error ? err.message : "Проверьте сумму");
+          }
+        }}
+      >
+        <p>
+          Сколько денег было на всех картах и наличными до самой первой операции
+          в вашей истории. Эта сумма не является доходом.
+        </p>
+        <Field label="Начальная сумма, ₽">
+          <input
+            required
+            autoFocus
+            inputMode="decimal"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder="0,00"
+          />
+        </Field>
+        <div className="starting-calculation">
+          <div>
+            <span>Начальные деньги</span>
+            <strong>{parsed === null ? "—" : money(parsed)}</strong>
+          </div>
+          <div>
+            <span>Доходы минус расходы за всю историю</span>
+            <strong>{money(net)}</strong>
+          </div>
+          <div>
+            <span>Остаток на сегодня</span>
+            <strong>{parsed === null ? "—" : money(parsed + net)}</strong>
+          </div>
+        </div>
+        <p className="muted">
+          Сумма применяется один раз ко всей истории. Операции и аналитика
+          доходов и расходов не изменятся. Начальные деньги сохраняются в
+          JSON-копии; CSV CoinBox их не содержит.
+        </p>
+        {error && (
+          <p className="form-error" role="alert">
+            {error}
+          </p>
+        )}
+        <div className="modal-actions">
+          <button type="button" className="btn secondary" onClick={onClose}>
+            Отмена
+          </button>
+          <button className="btn" type="submit">
+            Сохранить и пересчитать
+          </button>
+        </div>
       </form>
     </Modal>
   );

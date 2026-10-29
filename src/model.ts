@@ -43,6 +43,7 @@ export type Goal = {
 };
 export type CashBalance = { opening: number; date: string };
 export type Data = {
+  startingMoney?: number;
   cash?: CashBalance;
   version: 1;
   categories: Category[];
@@ -320,6 +321,12 @@ export function validateData(raw: unknown): Data {
       !isDate(d.cash.date))
   )
     throw Error("Некорректная отправная сумма остатка");
+  if (
+    d.startingMoney !== undefined &&
+    (!Number.isSafeInteger(d.startingMoney) ||
+      Math.abs(d.startingMoney) > 999999999999)
+  )
+    throw Error("Некорректная начальная сумма");
   const ids = new Set<string>();
   const id = (v: unknown) => {
     if (typeof v !== "string" || !v || ids.has(v))
@@ -406,6 +413,9 @@ export function validateData(raw: unknown): Data {
   return {
     version: 1,
     ...(d.cash ? { cash: { opening: d.cash.opening, date: d.cash.date } } : {}),
+    ...(d.startingMoney !== undefined
+      ? { startingMoney: d.startingMoney }
+      : {}),
     categories: d.categories,
     transactions: d.transactions,
     budgets: d.budgets,
@@ -470,5 +480,14 @@ export function csv(d: Data) {
 export function cashBalance(data: Data, asOf = today()): number {
   return data.transactions
     .filter((t) => t.date <= asOf)
-    .reduce((n, t) => n + (t.type === "income" ? t.amount : -t.amount), 0);
+    .reduce(
+      (n, t) => n + (t.type === "income" ? t.amount : -t.amount),
+      data.startingMoney ?? 0,
+    );
+}
+
+export function startingCents(value: string): number {
+  const v = value.trim();
+  if (/^-?0([.,]0{1,2})?$/.test(v)) return 0;
+  return v.startsWith("-") ? -cents(v.slice(1)) : cents(v);
 }

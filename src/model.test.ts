@@ -226,3 +226,38 @@ test("старые ручные настройки не влияют на авт
     -20000,
   );
 });
+
+test("начальные деньги дополняют все операции один раз и сохраняются в JSON", async () => {
+  const { cashBalance, startingCents } = await import("./model");
+  const d = initial();
+  d.startingMoney = 1000000;
+  d.transactions = [
+    {
+      id: "in",
+      type: "income",
+      amount: 200000,
+      date: "2026-07-01",
+      categoryId: "category-19",
+      comment: "",
+    },
+    {
+      id: "out",
+      type: "expense",
+      amount: 300025,
+      date: "2026-10-27",
+      categoryId: "category-0",
+      comment: "",
+    },
+  ];
+  assert.equal(cashBalance(d, "2026-10-29"), 899975);
+  assert.equal(
+    cashBalance(validateData(JSON.parse(JSON.stringify(d))), "2026-10-29"),
+    899975,
+  );
+  assert.equal(startingCents("10000"), 1000000);
+  assert.equal(startingCents("0,00"), 0);
+  assert.equal(startingCents("-10,25"), -1025);
+  assert.throws(() => startingCents("1.001"));
+  assert.throws(() => validateData({ ...d, startingMoney: 1.5 }));
+  assert.equal(sum(d.transactions, "income"), 200000);
+});

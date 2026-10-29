@@ -2157,3 +2157,30 @@ dialog::backdrop {
     font-size: 11px;
   }
 }
+.starting-calculation {
+  background: var(--bg);
+  padding: 17px;
+  border-radius: 11px;
+}
+.starting-calculation > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 10px 0;
+  font-size: 12px;
+}
+.starting-calculation > div > span {
+  max-width: 65%;
+  color: var(--muted);
+}
+.starting-calculation strong {
+  white-space: nowrap;
+}
+.starting-calculation > div:last-child {
+  border-top: 1px solid var(--border);
+  margin-top: 8px;
+  font-size: 14px;
+}
+.starting-calculation > div:last-child > span {
+  color: var(--text);
+}
