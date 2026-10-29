@@ -50,6 +50,12 @@ export type Goal = {
   contributions: Contribution[];
 };
 export type CashBalance = { opening: number; date: string };
+export type BackupReminder = {
+  enabled: boolean;
+  startedOn: string;
+  lastBackupOn?: string;
+  snoozedUntil?: string;
+};
 export type Data = {
   startingMoney?: number;
   cash?: CashBalance;
@@ -62,6 +68,7 @@ export type Data = {
     theme: "light" | "dark" | "system";
     palette?: Palette;
     lastExpenseDate?: string;
+    backupReminder?: BackupReminder;
   };
 };
 export const uid = () => crypto.randomUUID();
@@ -349,6 +356,16 @@ export function validateData(raw: unknown): Data {
     !isDate(d.settings.lastExpenseDate)
   )
     throw Error("Некорректная дата последнего расхода");
+  const reminder = d.settings.backupReminder;
+  if (
+    reminder !== undefined &&
+    (!reminder ||
+      typeof reminder.enabled !== "boolean" ||
+      !isDate(reminder.startedOn) ||
+      (reminder.lastBackupOn !== undefined && !isDate(reminder.lastBackupOn)) ||
+      (reminder.snoozedUntil !== undefined && !isDate(reminder.snoozedUntil)))
+  )
+    throw Error("Некорректные настройки напоминания");
   const ids = new Set<string>();
   const id = (v: unknown) => {
     if (typeof v !== "string" || !v || ids.has(v))
@@ -448,6 +465,20 @@ export function validateData(raw: unknown): Data {
       ...(d.settings.lastExpenseDate
         ? { lastExpenseDate: d.settings.lastExpenseDate }
         : {}),
+      ...(reminder
+        ? {
+            backupReminder: {
+              enabled: reminder.enabled,
+              startedOn: reminder.startedOn,
+              ...(reminder.lastBackupOn
+                ? { lastBackupOn: reminder.lastBackupOn }
+                : {}),
+              ...(reminder.snoozedUntil
+                ? { snoozedUntil: reminder.snoozedUntil }
+                : {}),
+            },
+          }
+        : {}),
     },
   };
 }
@@ -518,4 +549,30 @@ export function startingCents(value: string): number {
   const v = value.trim();
   if (/^-?0([.,]0{1,2})?$/.test(v)) return 0;
   return v.startsWith("-") ? -cents(v.slice(1)) : cents(v);
+}
+
+export function addDays(date: string, days: number): string {
+  const d = parseDate(date);
+  d.setDate(d.getDate() + days);
+  return localDate(d);
+}
+export function backupReminderDue(data: Data, now = today()): boolean {
+  const r = data.settings.backupReminder;
+  if (!r || !r.enabled) return false;
+  if (r.snoozedUntil && now < r.snoozedUntil) return false;
+  return now >= addDays(r.lastBackupOn || r.startedOn, 7);
+}
+export function confirmedBackup(data: Data, now = today()): Data {
+  const r = data.settings.backupReminder;
+  return {
+    ...data,
+    settings: {
+      ...data.settings,
+      backupReminder: {
+        enabled: r?.enabled ?? true,
+        startedOn: r?.startedOn || now,
+        lastBackupOn: now,
+      },
+    },
+  };
 }

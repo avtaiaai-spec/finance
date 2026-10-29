@@ -261,3 +261,37 @@ test("начальные деньги дополняют все операции
   assert.throws(() => validateData({ ...d, startingMoney: 1.5 }));
   assert.equal(sum(d.transactions, "income"), 200000);
 });
+
+test("напоминание о копии: семь календарных дней, отсрочка и отключение", async () => {
+  const { backupReminderDue, confirmedBackup, addDays } =
+    await import("./model");
+  const d = initial();
+  assert.equal(backupReminderDue(d, "2026-10-29"), false);
+  d.settings.backupReminder = { enabled: true, startedOn: "2026-10-22" };
+  assert.equal(backupReminderDue(d, "2026-10-28"), false);
+  assert.equal(backupReminderDue(d, "2026-10-29"), true);
+  d.settings.backupReminder.snoozedUntil = "2026-10-30";
+  assert.equal(backupReminderDue(d, "2026-10-29"), false);
+  assert.equal(backupReminderDue(d, "2026-10-30"), true);
+  const n = confirmedBackup(d, "2026-10-30");
+  assert.equal(n.settings.backupReminder?.snoozedUntil, undefined);
+  assert.equal(backupReminderDue(n, "2026-11-05"), false);
+  assert.equal(backupReminderDue(n, "2026-11-06"), true);
+  n.settings.backupReminder!.enabled = false;
+  assert.equal(backupReminderDue(n, "2027-01-01"), false);
+  assert.equal(addDays("2024-02-25", 7), "2024-03-03");
+  assert.equal(addDays("2026-12-29", 7), "2027-01-05");
+  assert.deepEqual(
+    validateData(JSON.parse(JSON.stringify(n))).settings.backupReminder,
+    n.settings.backupReminder,
+  );
+  assert.throws(() =>
+    validateData({
+      ...d,
+      settings: {
+        ...d.settings,
+        backupReminder: { enabled: true, startedOn: "2026-02-31" },
+      },
+    }),
+  );
+});

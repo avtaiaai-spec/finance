@@ -70,6 +70,8 @@ with sync_playwright() as p:
     nav('Настройки')
     original=state()
     with page.expect_download() as dl:page.get_by_role('button',name='Скачать резервную копию JSON',exact=True).click()
+    page.get_by_role('button',name='Копия сохранена',exact=True).click()
+    original=state()
     backup=json.load(open(dl.value.path()))
     assert backup['transactions']==original['transactions']
     with page.expect_download() as dl:page.get_by_role('button',name='Экспорт операций в CSV',exact=True).click()

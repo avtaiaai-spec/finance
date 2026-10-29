@@ -2412,3 +2412,49 @@ html[data-palette="brown"][data-theme="dark"] {
   margin-top: auto;
   padding-top: 22px;
 }
+.backup-reminder {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: 14px;
+  padding: 18px 20px;
+  margin-bottom: 24px;
+  color: var(--accent);
+}
+.backup-reminder strong {
+  font-size: 14px;
+  color: var(--text);
+}
+.backup-reminder p {
+  font-size: 11px;
+  margin-top: 5px;
+}
+.backup-reminder-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.settings-grid .backup-reminder-help {
+  font-size: 11px;
+  margin-bottom: 10px;
+}
+@media (max-width: 680px) {
+  .backup-reminder {
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 17px;
+  }
+  .backup-reminder > .grow {
+    min-width: 180px;
+  }
+  .backup-reminder-actions {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .backup-reminder-actions .btn {
+    flex: 1;
+  }
+}

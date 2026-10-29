@@ -57,6 +57,9 @@ import {
   download,
   STORAGE_KEY,
   cashBalance,
+  backupReminderDue,
+  confirmedBackup,
+  addDays,
   startingCents,
 } from "./model";
 import { parseCoinBox, planCoinBox, type CoinBoxFile } from "./coinbox";
@@ -334,6 +337,22 @@ export default function App() {
       history.replaceState(null, "", location.pathname + location.search);
   };
   const [editor, setEditor] = useState<Editor>(null);
+  const [backupConfirmation, setBackupConfirmation] = useState<{
+    source: Data;
+    demoMode: boolean;
+  } | null>(null);
+  const [reminderToday, setReminderToday] = useState(today());
+  useEffect(() => {
+    const update = () => setReminderToday(today());
+    window.addEventListener("focus", update);
+    document.addEventListener("visibilitychange", update);
+    const timer = setInterval(update, 60000);
+    return () => {
+      window.removeEventListener("focus", update);
+      document.removeEventListener("visibilitychange", update);
+      clearInterval(timer);
+    };
+  }, []);
   const [toast, setToast] = useState("");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
@@ -378,6 +397,32 @@ export default function App() {
       return false;
     }
   };
+  const requestBackup = () => {
+    try {
+      backup(confirmedBackup(data));
+      setBackupConfirmation({ source: data, demoMode: !!demo });
+    } catch {
+      notify("Не удалось начать выгрузку. Попробуйте ещё раз.");
+    }
+  };
+  useEffect(() => {
+    if (demo || storageError || real.settings.backupReminder) return;
+    if (
+      !real.transactions.length &&
+      !real.goals.length &&
+      !real.budgets.length &&
+      real.startingMoney === undefined &&
+      !real.categories.some((c) => !c.id.startsWith("category-"))
+    )
+      return;
+    save({
+      ...real,
+      settings: {
+        ...real.settings,
+        backupReminder: { enabled: true, startedOn: today() },
+      },
+    });
+  }, [real, demo, storageError]);
   useEffect(() => {
     const m = matchMedia("(prefers-color-scheme: dark)");
     const apply = () => {
@@ -720,6 +765,39 @@ export default function App() {
             </div>
           )}
           {storageError && <div className="banner danger">{storageError}</div>}
+          {!demo && backupReminderDue(data, reminderToday) && (
+            <section className="backup-reminder" role="status">
+              <I.Bell size={23} />
+              <div className="grow">
+                <strong>Не забудьте сохранить данные</strong>
+                <p>Пора скачать полную JSON-копию за эту неделю.</p>
+              </div>
+              <div className="backup-reminder-actions">
+                <button className="btn" onClick={requestBackup}>
+                  <I.Download size={16} />
+                  Скачать копию
+                </button>
+                <button
+                  className="text-btn"
+                  onClick={() =>
+                    save({
+                      ...data,
+                      settings: {
+                        ...data.settings,
+                        backupReminder: {
+                          ...data.settings.backupReminder!,
+                          snoozedUntil: addDays(reminderToday, 1),
+                        },
+                      },
+                    })
+                  }
+                >
+                  Напомнить завтра
+                </button>
+              </div>
+            </section>
+          )}
+
           <div className="page-heading">
             <div>
               <div className="eyebrow">ВАШЕ ФИНАНСОВОЕ СПОКОЙСТВИЕ</div>
@@ -1831,7 +1909,45 @@ export default function App() {
                   резервные копии: очистка браузера удалит данные. Синхронизации
                   между устройствами нет.
                 </p>
-                <button className="setting-link" onClick={() => backup(data)}>
+                <h3>Напоминание о резервной копии</h3>
+                <label className="check">
+                  <input
+                    type="checkbox"
+                    checked={data.settings.backupReminder?.enabled ?? true}
+                    onChange={(e) =>
+                      save({
+                        ...data,
+                        settings: {
+                          ...data.settings,
+                          backupReminder: {
+                            ...(data.settings.backupReminder || {
+                              startedOn: today(),
+                            }),
+                            enabled: e.target.checked,
+                          },
+                        },
+                      })
+                    }
+                  />
+                  Напоминать раз в неделю
+                </label>
+                <p className="backup-reminder-help">
+                  {data.settings.backupReminder?.lastBackupOn
+                    ? "Последняя подтверждённая копия: " +
+                      dateLabel(data.settings.backupReminder.lastBackupOn) +
+                      ". "
+                    : "Первое напоминание: " +
+                      dateLabel(
+                        addDays(
+                          data.settings.backupReminder?.startedOn || today(),
+                          7,
+                        ),
+                      ) +
+                      ". "}
+                  Напоминание показывается внутри приложения. Сохраните
+                  JSON-файл в «Файлы», iCloud Drive или другое надёжное место.
+                </p>
+                <button className="setting-link" onClick={requestBackup}>
                   <span>
                     <I.Download size={19} /> Скачать резервную копию JSON
                   </span>
@@ -2131,7 +2247,7 @@ export default function App() {
             дата.
           </p>
           <div className="modal-actions">
-            <button className="btn secondary" onClick={() => backup(data)}>
+            <button className="btn secondary" onClick={requestBackup}>
               Скачать текущую копию
             </button>
             <button
@@ -2166,7 +2282,7 @@ export default function App() {
             Сначала сохраните резервную копию.
           </p>
           <div className="modal-actions">
-            <button className="btn secondary" onClick={() => backup(data)}>
+            <button className="btn secondary" onClick={requestBackup}>
               Скачать текущую копию
             </button>
             <button
@@ -2192,6 +2308,53 @@ export default function App() {
               }}
             >
               Заменить данные
+            </button>
+          </div>
+        </Modal>
+      )}
+      {backupConfirmation && (
+        <Modal
+          title="Проверьте сохранение копии"
+          onClose={() => setBackupConfirmation(null)}
+        >
+          <p>
+            Загрузка JSON-файла запрошена. Убедитесь, что файл появился в
+            «Загрузках» или сохранён в «Файлы» / iCloud Drive. Приложение не
+            может проверить это автоматически.
+          </p>
+          <p className="muted">
+            После подтверждения следующее напоминание будет через неделю.
+          </p>
+          <div className="modal-actions">
+            <button
+              className="btn secondary"
+              onClick={() => setBackupConfirmation(null)}
+            >
+              Позже
+            </button>
+            <button
+              className="btn"
+              onClick={() => {
+                if (backupConfirmation.demoMode !== !!demo) {
+                  setBackupConfirmation(null);
+                  return;
+                }
+                if (data !== backupConfirmation.source) {
+                  notify(
+                    "После выгрузки данные изменились. Скачайте свежую копию.",
+                  );
+                  setBackupConfirmation(null);
+                  return;
+                }
+                if (save(confirmedBackup(data))) {
+                  setBackupConfirmation(null);
+                  notify(
+                    "Копия отмечена как сохранённая. Напомним через неделю.",
+                  );
+                }
+              }}
+            >
+              Копия сохранена
             </button>
           </div>
         </Modal>

@@ -32,6 +32,7 @@ with sync_playwright() as p:
  expect(page.locator('html')).to_have_attribute('data-palette','pink')
  page.emulate_media(color_scheme='light');expect(page.locator('html')).to_have_attribute('data-theme','light')
  with page.expect_download() as dl:page.get_by_role('button',name='Скачать резервную копию JSON',exact=True).click()
+ page.get_by_role('button',name='Копия сохранена',exact=True).click()
  saved=json.load(open(dl.value.path()));assert saved['settings']['palette']=='pink'
  page.get_by_role('button',name='Коричневая',exact=True).click()
  page.locator('input[type=file][accept=".json,application/json"]').set_input_files({'name':'backup.json','mimeType':'application/json','buffer':json.dumps(saved).encode()})

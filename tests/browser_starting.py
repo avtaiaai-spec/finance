@@ -26,6 +26,7 @@ with sync_playwright() as p:
  page.get_by_role('button',name='Тёмная',exact=True).click()
  assert state()['startingMoney']==11000000
  with page.expect_download() as dl:page.get_by_role('button',name='Скачать резервную копию JSON',exact=True).click()
+ page.get_by_role('button',name='Копия сохранена',exact=True).click()
  assert json.load(open(dl.value.path()))['startingMoney']==11000000
  content=b'Date,Type,Category,Amount,Currency,Note\n2026-07-01,expense,Test,100.25,RUB,\n'
  page.get_by_label('Файл CSV',exact=True).set_input_files({'name':'test.csv','mimeType':'text/csv','buffer':content})

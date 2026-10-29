@@ -42,6 +42,7 @@ with sync_playwright() as p:
  page.get_by_role('button',name='Розовая',exact=True).click()
  assert state()['settings']['lastExpenseDate']==older
  with page.expect_download() as dl:page.get_by_role('button',name='Скачать резервную копию JSON',exact=True).click()
+ page.get_by_role('button',name='Копия сохранена',exact=True).click()
  import json
  assert json.load(open(dl.value.path()))['settings']['lastExpenseDate']==older
  page.set_viewport_size({'width':390,'height':844})
