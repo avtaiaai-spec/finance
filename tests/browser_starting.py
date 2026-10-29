@@ -28,7 +28,7 @@ with sync_playwright() as p:
  with page.expect_download() as dl:page.get_by_role('button',name='Скачать резервную копию JSON',exact=True).click()
  assert json.load(open(dl.value.path()))['startingMoney']==11000000
  content=b'Date,Type,Category,Amount,Currency,Note\n2026-07-01,expense,Test,100.25,RUB,\n'
- page.get_by_label('Файл CoinBox CSV',exact=True).set_input_files({'name':'test.csv','mimeType':'text/csv','buffer':content})
+ page.get_by_label('Файл CSV',exact=True).set_input_files({'name':'test.csv','mimeType':'text/csv','buffer':content})
  page.get_by_role('button',name='Добавить операции (1)',exact=True).click()
  assert state()['startingMoney']==11000000
  page.locator('.bottom-nav').get_by_role('button',name='Главная',exact=True).click()

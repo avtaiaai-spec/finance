@@ -284,6 +284,14 @@ export default function App() {
   const data = demo || real;
   const [page, setPage] = useState("home");
   const [menu, setMenu] = useState(false);
+  useEffect(() => {
+    if (!menu) return;
+    const close = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenu(false);
+    };
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, [menu]);
   const [period, setPeriod] = useState<Period>("month");
   const [anchor, setAnchor] = useState(today());
   const [custom, setCustom] = useState(false);
@@ -666,6 +674,8 @@ export default function App() {
             <button
               className="icon-btn mobile-menu"
               aria-label="Открыть меню"
+              aria-expanded={menu}
+              aria-controls="mobile-navigation"
               onClick={() => setMenu(!menu)}
             >
               <I.Menu />
@@ -680,14 +690,25 @@ export default function App() {
           </div>
         </header>
         {menu && (
-          <nav className="more-menu">
-            {pages.map(([id, name, icon]) => (
-              <button key={id} onClick={() => go(id)}>
-                <Icon name={icon} />
-                {name}
-              </button>
-            ))}
-          </nav>
+          <>
+            <button
+              className="mobile-menu-backdrop"
+              aria-label="Закрыть меню"
+              onClick={() => setMenu(false)}
+            />
+            <nav
+              className="more-menu"
+              id="mobile-navigation"
+              aria-label="Дополнительное меню"
+            >
+              {pages.map(([id, name, icon]) => (
+                <button key={id} onClick={() => go(id)}>
+                  <Icon name={icon} />
+                  {name}
+                </button>
+              ))}
+            </nav>
+          </>
         )}
         <div className="content">
           {demo && (
@@ -1849,13 +1870,13 @@ export default function App() {
                 >
                   <span>
                     <I.FileUp size={19} />
-                    Импорт из CoinBox CSV
+                    Импорт CSV
                   </span>
                   <I.ArrowUpRight size={17} />
                 </button>
                 <input
                   type="file"
-                  aria-label="Файл CoinBox CSV"
+                  aria-label="Файл CSV"
                   accept=".csv,text/csv"
                   hidden
                   ref={csvFile}
@@ -2054,7 +2075,7 @@ export default function App() {
         </Modal>
       )}
       {coinbox && importPlan && (
-        <Modal title="Импорт из CoinBox" onClose={() => setCoinbox(null)}>
+        <Modal title="Импорт CSV" onClose={() => setCoinbox(null)}>
           <p className="csv-filename">{coinbox.name}</p>
           <p>
             Найдено: {coinbox.rows.length} операций. Будет добавлено:{" "}

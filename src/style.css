@@ -2368,3 +2368,68 @@ html[data-palette="brown"][data-theme="dark"] {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+/* Keep iPhone status-bar/notch space clear in installed standalone mode. */
+.mobile-menu-backdrop {
+  display: none;
+}
+@media (max-width: 680px) {
+  :root {
+    --mobile-safe-top: env(safe-area-inset-top, 0px);
+    --mobile-header-height: 65px;
+  }
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 70;
+    height: calc(var(--mobile-header-height) + var(--mobile-safe-top));
+    padding-top: var(--mobile-safe-top);
+    padding-left: max(18px, env(safe-area-inset-left, 0px));
+    padding-right: max(18px, env(safe-area-inset-right, 0px));
+    background: var(--bg);
+  }
+  .topbar .breadcrumb {
+    min-width: 0;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    margin-right: 8px;
+  }
+  .top-actions {
+    flex-shrink: 0;
+    gap: 8px;
+  }
+  .topbar .avatar {
+    width: 44px;
+    height: 44px;
+  }
+  .more-menu {
+    position: fixed;
+    z-index: 65;
+    top: calc(var(--mobile-header-height) + var(--mobile-safe-top) + 8px);
+    left: max(12px, env(safe-area-inset-left, 0px));
+    right: max(12px, env(safe-area-inset-right, 0px));
+    max-height: calc(
+      100dvh - var(--mobile-header-height) - var(--mobile-safe-top) -
+        env(safe-area-inset-bottom, 0px) - 95px
+    );
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  .mobile-menu-backdrop {
+    display: block;
+    position: fixed;
+    inset: calc(var(--mobile-header-height) + var(--mobile-safe-top)) 0 0;
+    z-index: 55;
+    background: #0005;
+    touch-action: manipulation;
+  }
+  dialog {
+    max-height: calc(
+      100dvh - env(safe-area-inset-top, 0px) -
+        env(safe-area-inset-bottom, 0px) - 24px
+    );
+    margin-top: max(12px, env(safe-area-inset-top, 0px));
+    margin-bottom: max(12px, env(safe-area-inset-bottom, 0px));
+  }
+}

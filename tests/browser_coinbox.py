@@ -23,7 +23,7 @@ with sync_playwright() as p:
     def state():return page.evaluate("JSON.parse(localStorage.getItem('calm-finance-v1'))")
     before=state()
     page.locator('.sidebar nav').get_by_role('button',name='Настройки',exact=True).click()
-    def select_file(body=content):page.get_by_label('Файл CoinBox CSV',exact=True).set_input_files({'name':'CoinBox.csv','mimeType':'text/csv','buffer':body})
+    def select_file(body=content):page.get_by_label('Файл CSV',exact=True).set_input_files({'name':'CoinBox.csv','mimeType':'text/csv','buffer':body})
     select_file()
     expect(page.get_by_role('dialog')).to_contain_text(f'Найдено: {len(rows)} операций')
     assert state()==before
