@@ -25,6 +25,8 @@ import {
 } from "recharts";
 import {
   type Data,
+  type Palette,
+  paletteNames,
   type Kind,
   type Period,
   type Transaction,
@@ -371,17 +373,25 @@ export default function App() {
   useEffect(() => {
     const m = matchMedia("(prefers-color-scheme: dark)");
     const apply = () => {
+      document.documentElement.dataset.palette =
+        data.settings.palette ?? "green";
       document.documentElement.dataset.theme =
         data.settings.theme === "system"
           ? m.matches
             ? "dark"
             : "light"
           : data.settings.theme;
+      const background = getComputedStyle(document.documentElement)
+        .getPropertyValue("--bg")
+        .trim();
+      document
+        .querySelector('meta[name="theme-color"]')
+        ?.setAttribute("content", background);
     };
     apply();
     m.addEventListener("change", apply);
     return () => m.removeEventListener("change", apply);
-  }, [data.settings.theme]);
+  }, [data.settings.theme, data.settings.palette]);
   const category = (id: string) => data.categories.find((c) => c.id === id);
   const current = data.transactions.filter((t) => within(t.date, selected));
   const previousRange: [string, string] = custom
@@ -615,9 +625,7 @@ export default function App() {
           <span className="logo">
             <I.Wallet size={23} />
           </span>
-          <span>
-            мои финансы<small>СПОКОЙСТВИЕ В ЦИФРАХ</small>
-          </span>
+          <span>мои финансы</span>
         </a>
         <div className="sidebar-label">ЛИЧНОЕ ПРОСТРАНСТВО</div>
         <nav>
@@ -707,21 +715,20 @@ export default function App() {
                   ? "Всё под контролем"
                   : pages.find((p) => p[0] === page)?.[1]}
               </h1>
-              <p>
-                {
-                  (
-                    {
-                      home: "Маленькие шаги. Большие возможности.",
-                      transactions: "Каждая операция — часть вашей истории.",
-                      categories: "Порядок в категориях. Ясность в финансах.",
-                      budgets: "Тратьте осознанно, оставляйте место важному.",
-                      goals: "Превращайте планы в реальные достижения.",
-                      analytics: "Посмотрите на свои привычки в цифрах.",
-                      settings: "Ваше пространство — ваши правила.",
-                    } as Record<string, string>
-                  )[page]
-                }
-              </p>
+              {!["transactions", "categories", "settings"].includes(page) && (
+                <p>
+                  {
+                    (
+                      {
+                        home: "Маленькие шаги. Большие возможности.",
+                        budgets: "Тратьте осознанно, оставляйте место важному.",
+                        goals: "Превращайте планы в реальные достижения.",
+                        analytics: "Посмотрите на свои привычки в цифрах.",
+                      } as Record<string, string>
+                    )[page]
+                  }
+                </p>
+              )}
             </div>
             <div className="heading-actions">
               {["home", "transactions"].includes(page) ? (
@@ -897,11 +904,6 @@ export default function App() {
                     <span>Доходы минус расходы</span>
                     <strong>{money(income - expense)}</strong>
                   </div>
-                  <p className="hero-footnote">
-                    Начальные деньги {money(data.startingMoney ?? 0)} + все
-                    доходы − все расходы по сегодня. Будущие операции не
-                    включены.
-                  </p>
                 </section>
                 <section className="card limits-home">
                   <div className="section-head">
@@ -1714,13 +1716,58 @@ export default function App() {
                     <button
                       key={v}
                       className={data.settings.theme === v ? "selected" : ""}
-                      onClick={() => save({ ...data, settings: { theme: v } })}
+                      onClick={() =>
+                        save({
+                          ...data,
+                          settings: { ...data.settings, theme: v },
+                        })
+                      }
                     >
                       <Icon name={i} size={24} />
                       {n}
                     </button>
                   ))}
                 </div>
+                <h3>Цветовая тема</h3>
+                <div
+                  className="theme-palettes"
+                  role="group"
+                  aria-label="Цветовая тема"
+                >
+                  {(Object.entries(paletteNames) as [Palette, string][]).map(
+                    ([value, name]) => (
+                      <button
+                        key={value}
+                        data-palette={value}
+                        className={
+                          (data.settings.palette ?? "green") === value
+                            ? "selected"
+                            : ""
+                        }
+                        aria-pressed={
+                          (data.settings.palette ?? "green") === value
+                        }
+                        onClick={() =>
+                          save({
+                            ...data,
+                            settings: { ...data.settings, palette: value },
+                          })
+                        }
+                      >
+                        <span className="palette-sample">
+                          <i />
+                          {(data.settings.palette ?? "green") === value && (
+                            <I.Check size={15} />
+                          )}
+                        </span>
+                        {name}
+                      </button>
+                    ),
+                  )}
+                </div>
+                <p className="palette-help">
+                  Любой цвет доступен в светлом, тёмном и системном режиме.
+                </p>
                 <h3>Основные настройки</h3>
                 <button className="setting-link" onClick={openStarting}>
                   <span>Начальные деньги до первой операции</span>
@@ -1918,9 +1965,6 @@ export default function App() {
           )}
           <footer>
             <span>Мои финансы</span>
-            <span>
-              Меньше тревоги. Больше ясности. <I.Sprout size={14} />
-            </span>
           </footer>
         </div>
       </main>

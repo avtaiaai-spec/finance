@@ -22,6 +22,15 @@
     <script>
       try {
         let d = JSON.parse(localStorage.getItem("calm-finance-v1") || "null");
+        document.documentElement.dataset.palette = [
+          "green",
+          "pink",
+          "yellow",
+          "burgundy",
+          "brown",
+        ].includes(d?.settings?.palette)
+          ? d.settings.palette
+          : "green";
         document.documentElement.dataset.theme =
           (d?.settings?.theme || "system") === "system"
             ? matchMedia("(prefers-color-scheme: dark)").matches
@@ -36,7 +45,7 @@
           : "light";
       }
     </script>
-    <title>Мои финансы — спокойствие в цифрах</title>
+    <title>Мои финансы</title>
   </head>
   <body>
     <div id="root"></div>

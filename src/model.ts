@@ -1,3 +1,11 @@
+export type Palette = "green" | "pink" | "yellow" | "burgundy" | "brown";
+export const paletteNames: Record<Palette, string> = {
+  green: "Зелёная",
+  pink: "Розовая",
+  yellow: "Жёлтая",
+  burgundy: "Бордовая",
+  brown: "Коричневая",
+};
 export type Kind = "income" | "expense";
 export type Period = "week" | "month" | "quarter" | "year";
 export type Category = {
@@ -50,7 +58,7 @@ export type Data = {
   transactions: Transaction[];
   budgets: Budget[];
   goals: Goal[];
-  settings: { theme: "light" | "dark" | "system" };
+  settings: { theme: "light" | "dark" | "system"; palette?: Palette };
 };
 export const uid = () => crypto.randomUUID();
 export const today = () => localDate(new Date());
@@ -327,6 +335,11 @@ export function validateData(raw: unknown): Data {
       Math.abs(d.startingMoney) > 999999999999)
   )
     throw Error("Некорректная начальная сумма");
+  if (
+    d.settings.palette !== undefined &&
+    !Object.hasOwn(paletteNames, d.settings.palette)
+  )
+    throw Error("Неизвестная цветовая тема");
   const ids = new Set<string>();
   const id = (v: unknown) => {
     if (typeof v !== "string" || !v || ids.has(v))
@@ -420,7 +433,10 @@ export function validateData(raw: unknown): Data {
     transactions: d.transactions,
     budgets: d.budgets,
     goals: d.goals,
-    settings: { theme: d.settings.theme },
+    settings: {
+      theme: d.settings.theme,
+      ...(d.settings.palette ? { palette: d.settings.palette } : {}),
+    },
   };
 }
 export function load(): { data: Data; error: string | null } {
