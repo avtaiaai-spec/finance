@@ -8,7 +8,7 @@ with sync_playwright() as p:
     page = browser.new_page(viewport={'width':1440,'height':1000})
     errors=[]
     page.on('pageerror',lambda err:errors.append(str(err)))
-    page.goto(os.environ.get('APP_URL','http://127.0.0.1:5173'))
+    page.goto(os.environ.get('APP_URL','http://127.0.0.1:5173/finance/'))
     page.evaluate('localStorage.clear()')
     page.reload()
     def state(): return page.evaluate("JSON.parse(localStorage.getItem('calm-finance-v1'))")
