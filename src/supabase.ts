@@ -2,12 +2,21 @@ import { createClient, type User } from "@supabase/supabase-js";
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./cloud-config";
 import { type CloudRow, type Transport } from "./cloud-store";
 import { type Data, validateData } from "./model";
+// Capture recovery intent before the SDK consumes and removes the URL fragment.
+const landing = new URL(window.location.href);
+const fragment = new URLSearchParams(landing.hash.slice(1));
+export const authLinkError =
+  fragment.has("error") || landing.searchParams.has("error");
+export const recoveryLanding =
+  fragment.get("type") === "recovery" ||
+  landing.searchParams.has("code") ||
+  authLinkError;
 export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
-    flowType: "pkce",
+    flowType: landing.searchParams.has("code") ? "pkce" : "implicit",
   },
 });
 export async function cloudRequest(user: User, path: string, body?: unknown) {

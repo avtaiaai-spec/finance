@@ -2586,3 +2586,11 @@ html[data-palette="brown"][data-theme="dark"] {
 .account-page .account-card {
   width: 100%;
 }
+
+.topbar .avatar {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  border-width: 2px;
+  font-size: 18px;
+}

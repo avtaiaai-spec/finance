@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import type { User } from "@supabase/supabase-js";
-import { supabase, transportFor, cloudRequest } from "./supabase";
+import {
+  supabase,
+  transportFor,
+  cloudRequest,
+  recoveryLanding,
+  authLinkError,
+} from "./supabase";
 import { CloudStore, cloudError } from "./cloud-store";
 import { AUTH_REDIRECT } from "./cloud-config";
 import { type Data, backup, load, validateData } from "./model";
@@ -19,8 +25,18 @@ export type Account = {
 export function useAccount(): Account {
   const [user, setUser] = useState<User | null>(null),
     [loading, setLoading] = useState(true),
-    [recovery, setRecovery] = useState(false),
-    [authError, setAuthError] = useState("");
+    [recovery, setRecovery] = useState(recoveryLanding && !authLinkError),
+    [authError, setAuthError] = useState(
+      authLinkError
+        ? "Ссылка для сброса недействительна или устарела. Запросите новое письмо."
+        : "",
+    );
+  const rememberRecovery = (owner: string | null) => {
+    try {
+      if (owner) sessionStorage.setItem("finance-password-recovery", owner);
+      else sessionStorage.removeItem("finance-password-recovery");
+    } catch {}
+  };
   const identity = useRef<string | null>(null);
   const [justSignedIn, setJustSignedIn] = useState(false);
   useEffect(() => {
@@ -31,6 +47,23 @@ export function useAccount(): Account {
         if (active) {
           identity.current = data.session?.user.id || null;
           setUser(data.session?.user || null);
+          if (recoveryLanding && !data.session) {
+            setRecovery(false);
+            setAuthError(
+              "Не удалось открыть ссылку сброса. Запросите новое письмо и откройте самую свежую ссылку.",
+            );
+          }
+          try {
+            if (
+              data.session &&
+              ((recoveryLanding && !authLinkError) ||
+                sessionStorage.getItem("finance-password-recovery") ===
+                  data.session.user.id)
+            ) {
+              setRecovery(true);
+              rememberRecovery(data.session.user.id);
+            }
+          } catch {}
           setLoading(false);
           if (error)
             setAuthError(
@@ -53,8 +86,14 @@ export function useAccount(): Account {
       setUser(session?.user || null);
       if (session) setAuthError("");
       setLoading(false);
-      if (event === "PASSWORD_RECOVERY") setRecovery(true);
-      if (event === "SIGNED_OUT") setRecovery(false);
+      if (event === "PASSWORD_RECOVERY") {
+        setRecovery(true);
+        rememberRecovery(session?.user.id || null);
+      }
+      if (event === "SIGNED_OUT") {
+        setRecovery(false);
+        rememberRecovery(null);
+      }
     });
     return () => {
       active = false;
@@ -174,7 +213,10 @@ export function useAccount(): Account {
     loading,
     recovery,
     authError,
-    finishRecovery: () => setRecovery(false),
+    finishRecovery: () => {
+      setRecovery(false);
+      rememberRecovery(null);
+    },
     avatarUrl,
     justSignedIn,
   };
@@ -189,7 +231,7 @@ export function AccountPanel({
   onChanged: () => void;
 }) {
   const [mode, setMode] = useState<"login" | "signup" | "reset" | "password">(
-    "login",
+    recoveryLanding ? "reset" : "login",
   );
   const [email, setEmail] = useState(""),
     [password, setPassword] = useState(""),
@@ -247,7 +289,9 @@ export function AccountPanel({
         if (r.error) throw r.error;
         setPassword("");
         setMode("login");
-        setMessage("Пароль обновлён.");
+        setMessage(
+          "Пароль обновлён. Теперь можно войти с телефона с новым паролем.",
+        );
         account.finishRecovery();
       }
     } catch (e) {
@@ -259,9 +303,11 @@ export function AccountPanel({
             ? "Сначала подтвердите адрес по ссылке в письме."
             : code === "over_email_send_rate_limit"
               ? "Слишком много писем. Подождите и попробуйте снова."
-              : code === "weak_password"
-                ? "Выберите более надёжный пароль."
-                : "Не удалось выполнить запрос. Проверьте данные и интернет; повторите попытку.",
+              : code === "same_password"
+                ? "Новый пароль должен отличаться от прежнего."
+                : code === "weak_password"
+                  ? "Выберите более надёжный пароль."
+                  : "Не удалось выполнить запрос. Проверьте данные и интернет; повторите попытку.",
       );
     } finally {
       setBusy(false);
@@ -286,9 +332,19 @@ export function AccountPanel({
   return (
     <section className="card account-card">
       <h2>Учётная запись</h2>
-      {account.user && store ? (
+      {account.user && store && mode !== "password" ? (
         <>
           <p className="account-email">{account.user.email}</p>
+          <button
+            className="text-btn"
+            onClick={() => {
+              setMode("password");
+              setPassword("");
+              setMessage("");
+            }}
+          >
+            Изменить пароль
+          </button>
           <ProfileForm
             key={account.user.id}
             user={account.user}
@@ -481,7 +537,7 @@ export function AccountPanel({
             )}
           </details>
         </>
-      ) : (
+      ) : account.user ? null : (
         <>
           <p>
             Войдите с телефона и компьютера, чтобы использовать одну историю. До

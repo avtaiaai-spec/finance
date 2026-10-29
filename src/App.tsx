@@ -309,7 +309,11 @@ function FinanceApp({ account }: { account: Account }) {
   }, [account.store]);
   const [demo, setDemo] = useState<Data | null>(null);
   const data = demo || real;
-  const [page, setPage] = useState(account.justSignedIn ? "account" : "home");
+  const [page, setPage] = useState(
+    account.justSignedIn || account.recovery || account.authError
+      ? "account"
+      : "home",
+  );
   const pageTitle =
     page === "account"
       ? "Личный кабинет"
