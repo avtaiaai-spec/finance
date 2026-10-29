@@ -7,7 +7,7 @@
     "dev": "vite --host 0.0.0.0",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 0.0.0.0",
-    "test": "node --import tsx src/model.test.ts && node --import tsx src/coinbox.test.ts && node --import tsx src/cloud.test.ts && node --import tsx src/cloud-sql.test.ts",
+    "test": "node --import tsx src/model.test.ts && node --import tsx src/coinbox.test.ts && node --import tsx src/cloud.test.ts && node --import tsx src/cloud-sql.test.ts && node --import tsx src/profile-sql.test.ts",
     "format": "prettier --write src vite.config.ts index.html"
   },
   "dependencies": {

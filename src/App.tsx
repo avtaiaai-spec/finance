@@ -65,6 +65,7 @@ import {
 import { parseCoinBox, planCoinBox, type CoinBoxFile } from "./coinbox";
 import { useAccount, AccountPanel, type Account } from "./account";
 import { equal as sameFinanceData } from "./cloud-merge";
+import { Avatar, profileName } from "./profile";
 const pages = [
   ["home", "Главная", "LayoutDashboard"],
   ["transactions", "Операции", "ArrowLeftRight"],
@@ -765,9 +766,10 @@ function FinanceApp({ account }: { account: Account }) {
             <button
               className="avatar"
               aria-label="Открыть настройки"
+              title={profileName(account.user) || "Личный кабинет"}
               onClick={() => go("settings")}
             >
-              Я
+              <Avatar user={account.user} url={account.avatarUrl} />
             </button>
           </div>
         </header>

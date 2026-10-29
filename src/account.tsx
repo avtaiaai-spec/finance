@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase, transportFor, cloudRequest } from "./supabase";
 import { CloudStore, cloudError } from "./cloud-store";
 import { AUTH_REDIRECT } from "./cloud-config";
 import { type Data, backup, load, validateData } from "./model";
 import { hasFinance } from "./cloud-merge";
+import { ProfileForm, useProfileAvatar } from "./profile";
 export type Account = {
   user: User | null;
   store: CloudStore | null;
@@ -12,18 +13,21 @@ export type Account = {
   recovery: boolean;
   authError: string;
   finishRecovery: () => void;
+  avatarUrl: string | null;
 };
 export function useAccount(): Account {
   const [user, setUser] = useState<User | null>(null),
     [loading, setLoading] = useState(true),
     [recovery, setRecovery] = useState(false),
     [authError, setAuthError] = useState("");
+  const identity = useRef<string | null>(null);
   useEffect(() => {
     let active = true;
     supabase.auth
       .getSession()
       .then(({ data, error }) => {
         if (active) {
+          identity.current = data.session?.user.id || null;
           setUser(data.session?.user || null);
           setLoading(false);
           if (error)
@@ -40,6 +44,7 @@ export function useAccount(): Account {
       });
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
       if (!active) return;
+      identity.current = session?.user.id || null;
       setUser(session?.user || null);
       if (session) setAuthError("");
       setLoading(false);
@@ -51,6 +56,39 @@ export function useAccount(): Account {
       data.subscription.unsubscribe();
     };
   }, []);
+  const avatarUrl = useProfileAvatar(user);
+  useEffect(() => {
+    const owner = user?.id;
+    if (!owner) return;
+    let active = true;
+    const refresh = async () => {
+      try {
+        const { data, error } = await supabase.auth.getUser();
+        if (
+          active &&
+          !error &&
+          data.user?.id === owner &&
+          identity.current === owner
+        )
+          setUser(data.user);
+      } catch {}
+    };
+    void refresh();
+    const visible = () => {
+      if (!document.hidden) void refresh();
+    };
+    window.addEventListener("focus", visible);
+    window.addEventListener("finance-profile-updated", visible);
+    document.addEventListener("visibilitychange", visible);
+    const timer = setInterval(visible, 60000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+      window.removeEventListener("focus", visible);
+      window.removeEventListener("finance-profile-updated", visible);
+      document.removeEventListener("visibilitychange", visible);
+    };
+  }, [user?.id]);
   const store = useMemo(() => {
     if (!user) return null;
     const s = new CloudStore(user.id, transportFor(user));
@@ -132,6 +170,7 @@ export function useAccount(): Account {
     recovery,
     authError,
     finishRecovery: () => setRecovery(false),
+    avatarUrl,
   };
 }
 export function AccountPanel({
@@ -244,6 +283,11 @@ export function AccountPanel({
       {account.user && store ? (
         <>
           <p className="account-email">{account.user.email}</p>
+          <ProfileForm
+            key={account.user.id}
+            user={account.user}
+            avatarUrl={account.avatarUrl}
+          />
           <p className="sync-status" role="status">
             {store.status}
           </p>
