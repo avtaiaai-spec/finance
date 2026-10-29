@@ -2082,3 +2082,78 @@ dialog::backdrop {
     font-size: 11px;
   }
 }
+.hero-edit {
+  display: grid;
+  place-items: center;
+  min-height: 44px;
+  min-width: 44px;
+  border-radius: 8px;
+  color: #d3e4da;
+  margin: -10px -10px -10px 0;
+  position: relative;
+  z-index: 1;
+}
+.hero-edit:hover {
+  background: #ffffff12;
+}
+.hero-setup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #ffffff45;
+  border-radius: 8px;
+  padding: 9px 12px;
+  min-height: 44px;
+  color: white;
+  font-size: 12px;
+}
+.hero-change .cash-asof {
+  padding: 0;
+  background: transparent;
+  color: #d3e4da;
+  font-size: 10px;
+}
+.hero-period-label {
+  font-size: 9px;
+  color: #b9cec4;
+  margin-bottom: 17px;
+}
+.hero-period-net {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  font-size: 10px;
+  color: #c9dcd0;
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid #ffffff1c;
+}
+.hero-period-net strong {
+  font-size: 13px;
+  color: white;
+}
+.hero-footnote {
+  line-height: 1.6;
+  font-size: 9px;
+}
+.hero-number {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 680px) {
+  .hero-number {
+    font-size: clamp(28px, 9vw, 42px);
+  }
+  .hero-change .cash-asof {
+    font-size: 9px;
+  }
+  .hero-period-net {
+    font-size: 10px;
+  }
+  .hero-footnote {
+    font-size: 9px;
+  }
+  .hero-setup {
+    font-size: 11px;
+  }
+}

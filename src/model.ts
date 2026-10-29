@@ -41,7 +41,9 @@ export type Goal = {
   comment: string;
   contributions: Contribution[];
 };
+export type CashBalance = { opening: number; date: string };
 export type Data = {
+  cash?: CashBalance;
   version: 1;
   categories: Category[];
   transactions: Transaction[];
@@ -310,6 +312,14 @@ export function validateData(raw: unknown): Data {
     !["light", "dark", "system"].includes(d.settings.theme)
   )
     throw Error("Неподдерживаемая структура резервной копии");
+  if (
+    d.cash !== undefined &&
+    (!d.cash ||
+      !Number.isSafeInteger(d.cash.opening) ||
+      Math.abs(d.cash.opening) > 999999999999 ||
+      !isDate(d.cash.date))
+  )
+    throw Error("Некорректная отправная сумма остатка");
   const ids = new Set<string>();
   const id = (v: unknown) => {
     if (typeof v !== "string" || !v || ids.has(v))
@@ -395,6 +405,7 @@ export function validateData(raw: unknown): Data {
   }
   return {
     version: 1,
+    ...(d.cash ? { cash: { opening: d.cash.opening, date: d.cash.date } } : {}),
     categories: d.categories,
     transactions: d.transactions,
     budgets: d.budgets,
@@ -452,4 +463,29 @@ export function csv(d: Data) {
     "\ufeff" + rows.map((r) => r.map(cell).join(";")).join("\r\n"),
     "text/csv;charset=utf-8",
   );
+}
+
+// Opening is the money available at the START of date; future entries are excluded.
+export function cashBalance(data: Data, asOf = today()): number | null {
+  if (!data.cash || data.cash.date > asOf) return null;
+  return data.cash.opening + cashMovement(data, data.cash.date, asOf);
+}
+export function cashMovement(data: Data, from: string, to: string): number {
+  return data.transactions
+    .filter((t) => t.date >= from && t.date <= to)
+    .reduce((n, t) => n + (t.type === "income" ? t.amount : -t.amount), 0);
+}
+export function signedCents(value: string): number {
+  const v = value.trim();
+  if (/^-?0([.,]0{1,2})?$/.test(v)) return 0;
+  return v.startsWith("-") ? -cents(v.slice(1)) : cents(v);
+}
+export function setCashBalance(
+  data: Data,
+  value: number,
+  date: string,
+  current = false,
+): Data {
+  const opening = current ? value - cashMovement(data, date, date) : value;
+  return validateData({ ...data, cash: { opening, date } });
 }

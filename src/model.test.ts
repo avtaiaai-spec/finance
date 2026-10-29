@@ -154,3 +154,94 @@ test("импорт отвергает дубликаты, битые ссылк�
     assert.throws(() => validateData(d));
   }
 });
+
+test("остаток: начало даты, прошлые и будущие операции, правки и удаление", async () => {
+  const { cashBalance, setCashBalance } = await import("./model");
+  const d = initial();
+  d.transactions = [
+    {
+      id: "before",
+      type: "income",
+      amount: 100000,
+      date: "2026-09-30",
+      categoryId: "category-19",
+      comment: "",
+    },
+    {
+      id: "expense",
+      type: "expense",
+      amount: 30000,
+      date: "2026-10-01",
+      categoryId: "category-0",
+      comment: "",
+    },
+    {
+      id: "income",
+      type: "income",
+      amount: 10000,
+      date: "2026-10-02",
+      categoryId: "category-19",
+      comment: "",
+    },
+    {
+      id: "future",
+      type: "expense",
+      amount: 900000,
+      date: "2026-11-01",
+      categoryId: "category-0",
+      comment: "",
+    },
+  ];
+  assert.equal(cashBalance(d, "2026-10-29"), null);
+  const n = setCashBalance(d, 100000, "2026-10-01");
+  assert.equal(cashBalance(n, "2026-10-29"), 80000);
+  assert.equal(cashBalance(n, "2026-09-30"), null);
+  n.transactions = n.transactions.map((t) =>
+    t.id === "expense" ? { ...t, amount: 20000 } : t,
+  );
+  assert.equal(cashBalance(n, "2026-10-29"), 90000);
+  n.transactions = n.transactions.filter((t) => t.id !== "expense");
+  assert.equal(cashBalance(n, "2026-10-29"), 110000);
+  assert.equal(
+    cashBalance(validateData(JSON.parse(JSON.stringify(n))), "2026-10-29"),
+    110000,
+  );
+});
+test("фактический остаток сейчас не вычитает уже записанные операции повторно", async () => {
+  const { cashBalance, setCashBalance, signedCents } = await import("./model");
+  const d = initial();
+  d.transactions = [
+    {
+      id: "today-expense",
+      type: "expense",
+      amount: 20000,
+      date: "2026-10-29",
+      categoryId: "category-0",
+      comment: "",
+    },
+  ];
+  const n = setCashBalance(d, 500000, "2026-10-29", true);
+  assert.equal(cashBalance(n, "2026-10-29"), 500000);
+  n.transactions.push({
+    id: "new",
+    type: "expense",
+    amount: 10000,
+    date: "2026-10-29",
+    categoryId: "category-0",
+    comment: "",
+  });
+  assert.equal(cashBalance(n, "2026-10-29"), 490000);
+  assert.equal(signedCents("0,00"), 0);
+  assert.equal(signedCents("-10,25"), -1025);
+  assert.equal(signedCents("10.25"), 1025);
+  assert.equal(
+    cashBalance(setCashBalance(d, 0, "2026-10-29", true), "2026-10-29"),
+    0,
+  );
+  assert.throws(() =>
+    validateData({ ...d, cash: { opening: 1.5, date: "2026-10-29" } }),
+  );
+  assert.throws(() =>
+    validateData({ ...d, cash: { opening: 100, date: "2026-02-31" } }),
+  );
+});
