@@ -234,19 +234,42 @@ function Modal({
   title,
   onClose,
   children,
+  fixedActions = false,
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
+  fixedActions?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const el = ref.current;
     el?.showModal();
-    return () => el?.close();
+    const viewport = window.visualViewport;
+    const updateViewport = () => {
+      el?.style.setProperty(
+        "--dialog-viewport-height",
+        `${viewport?.height ?? window.innerHeight}px`,
+      );
+      el?.style.setProperty(
+        "--dialog-viewport-top",
+        `${viewport?.offsetTop ?? 0}px`,
+      );
+    };
+    updateViewport();
+    viewport?.addEventListener("resize", updateViewport);
+    viewport?.addEventListener("scroll", updateViewport);
+    window.addEventListener("resize", updateViewport);
+    return () => {
+      viewport?.removeEventListener("resize", updateViewport);
+      viewport?.removeEventListener("scroll", updateViewport);
+      window.removeEventListener("resize", updateViewport);
+      el?.close();
+    };
   }, []);
   return (
     <dialog
+      className={fixedActions ? "editor-dialog" : undefined}
       ref={ref}
       onCancel={onClose}
       onClick={(e) => {
@@ -2695,268 +2718,358 @@ function EditorModal({
     contribution: contribution ? "Исправить пополнение" : "Пополнить цель",
   };
   return (
-    <Modal title={titles[editor.type]} onClose={onClose}>
+    <Modal title={titles[editor.type]} onClose={onClose} fixedActions>
       <form onSubmit={submit} className="editor-form">
-        {["transaction", "category", "goal"].includes(editor.type) && (
-          <div className="segmented type-switch">
-            {(
-              [
-                ["expense", "Расход"],
-                ["income", "Доход"],
-                ...(editor.type === "goal" ? [["saving", "Накопления"]] : []),
-              ] as [Kind | "saving", string][]
-            ).map(([k, n]) => (
-              <button
-                type="button"
-                key={k}
-                disabled={!!linked || !!goal?.contributions.length}
-                className={kind === k ? "selected" : ""}
-                onClick={() => setType(k)}
-              >
-                {n}
-              </button>
-            ))}
-          </div>
-        )}
-        {["category", "goal"].includes(editor.type) && (
-          <Field label="Название">
-            <input
-              required
-              maxLength={100}
-              placeholder={
-                editor.type === "goal"
-                  ? "Например, путешествие к морю"
-                  : "Название категории"
-              }
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </Field>
-        )}
-        {editor.type !== "category" && (
-          <Field
-            label={
-              editor.type === "goal" && kind === "expense"
-                ? "Максимальный расход, ₽"
-                : "Сумма, ₽"
-            }
-          >
-            <input
-              className="amount-field"
-              required
-              autoFocus
-              inputMode="decimal"
-              placeholder="0,00"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-            />
-          </Field>
-        )}
-        {["transaction", "budget"].includes(editor.type) && (
-          <Field label="Категория">
-            <div className="category-picker">
-              {data.categories
-                .filter(
-                  (c) =>
-                    (!c.archived ||
-                      c.id === tx?.categoryId ||
-                      c.id === budget?.categoryId) &&
-                    c.type === (editor.type === "budget" ? "expense" : kind),
-                )
-                .map((c) => (
-                  <button
-                    type="button"
-                    key={c.id}
-                    className={catId === c.id ? "selected" : ""}
-                    onClick={() => setCatId(c.id)}
-                  >
-                    <CatIcon cat={c} />
-                    <span>
-                      {c.name}
-                      {c.archived ? " (архив)" : ""}
-                    </span>
-                  </button>
-                ))}
+        <div className="editor-fields">
+          {["transaction", "category", "goal"].includes(editor.type) && (
+            <div className="segmented type-switch">
+              {(
+                [
+                  ["expense", "Расход"],
+                  ["income", "Доход"],
+                  ...(editor.type === "goal" ? [["saving", "Накопления"]] : []),
+                ] as [Kind | "saving", string][]
+              ).map(([k, n]) => (
+                <button
+                  type="button"
+                  key={k}
+                  disabled={!!linked || !!goal?.contributions.length}
+                  className={kind === k ? "selected" : ""}
+                  onClick={() => setType(k)}
+                >
+                  {n}
+                </button>
+              ))}
             </div>
-          </Field>
-        )}
-        {["transaction", "contribution"].includes(editor.type) && (
-          <Field label="Дата">
-            <input
-              required
-              type="date"
-              name="entryDate"
-              onInput={(e) => setDate(e.currentTarget.value)}
-              min={
-                editor.type === "contribution" ? editor.goal.start : undefined
-              }
-              max={editor.type === "contribution" ? editor.goal.end : undefined}
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-            />
-          </Field>
-        )}
-        {["budget", "goal"].includes(editor.type) && (
-          <Field label="Период">
-            <select
-              value={period}
-              onChange={(e) => {
-                const p = e.target.value as Period;
-                setPeriod(p);
-                if (editor.type === "goal") {
-                  const [s, en] = range(p, start);
-                  setStart(s);
-                  setEnd(en);
+          )}
+          {["category", "goal"].includes(editor.type) && (
+            <Field label="Название">
+              <input
+                required
+                maxLength={100}
+                placeholder={
+                  editor.type === "goal"
+                    ? "Например, путешествие к морю"
+                    : "Название категории"
                 }
-              }}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </Field>
+          )}
+          {editor.type !== "category" && (
+            <Field
+              label={
+                editor.type === "goal" && kind === "expense"
+                  ? "Максимальный расход, ₽"
+                  : "Сумма, ₽"
+              }
             >
-              {(Object.keys(periodNames) as Period[])
-                .filter(
-                  (p) =>
-                    p !== "day" && (editor.type !== "goal" || p !== "week"),
-                )
-                .map((p) => (
-                  <option key={p} value={p}>
-                    {periodNames[p]}
-                  </option>
-                ))}
-            </select>
-          </Field>
-        )}
-        {editor.type === "budget" && (
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={enabled}
-              onChange={(e) => setEnabled(e.target.checked)}
-            />{" "}
-            Лимит включён
-          </label>
-        )}
-        {editor.type === "goal" && (
-          <div className="two-grid">
-            <Field label="Начало">
               <input
+                className="amount-field"
                 required
-                type="date"
-                value={start}
-                onChange={(e) => setStart(e.target.value)}
+                autoFocus
+                inputMode="decimal"
+                placeholder="0,00"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
               />
             </Field>
-            <Field label="Завершение">
-              <input
-                required
-                type="date"
-                min={start}
-                value={end}
-                onChange={(e) => setEnd(e.target.value)}
-              />
-            </Field>
-          </div>
-        )}
-        {["transaction", "goal", "contribution"].includes(editor.type) && (
-          <Field label="Комментарий · необязательно">
-            <textarea
-              rows={3}
-              maxLength={2000}
-              placeholder="Пара слов для себя"
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-            />
-          </Field>
-        )}
-        {editor.type === "category" && (
-          <>
-            <Field label="Иконка">
-              <input
-                placeholder="Поиск: кофе, дом, gift…"
-                value={iconSearch}
-                onChange={(e) => setIconSearch(e.target.value)}
-              />
-              <div className="icon-catalog">
-                {iconNames
-                  .filter((n) => {
-                    const label =
-                      initial().categories.find((c) => c.icon === n)?.name ||
-                      "";
-                    return (n + " " + label)
-                      .toLowerCase()
-                      .includes(iconSearch.toLowerCase());
-                  })
-                  .map((n) => (
+          )}
+          {["transaction", "budget"].includes(editor.type) && (
+            <Field label="Категория">
+              <div className="category-picker">
+                {data.categories
+                  .filter(
+                    (c) =>
+                      (!c.archived ||
+                        c.id === tx?.categoryId ||
+                        c.id === budget?.categoryId) &&
+                      c.type === (editor.type === "budget" ? "expense" : kind),
+                  )
+                  .map((c) => (
                     <button
                       type="button"
-                      title={n}
-                      aria-label={n}
-                      key={n}
-                      className={n === icon ? "selected" : ""}
-                      onClick={() => setIcon(n)}
+                      key={c.id}
+                      className={catId === c.id ? "selected" : ""}
+                      onClick={() => setCatId(c.id)}
                     >
-                      <Icon name={n} />
+                      <CatIcon cat={c} />
+                      <span>
+                        {c.name}
+                        {c.archived ? " (архив)" : ""}
+                      </span>
                     </button>
                   ))}
               </div>
             </Field>
-            <Field label="Цвет">
-              <div className="swatches">
-                {[
-                  "#83A994",
-                  "#D1AD76",
-                  "#8FA7BF",
-                  "#B69DC0",
-                  "#C99485",
-                  "#9BAA78",
-                  "#7AACA7",
-                  "#C76556",
-                  "#276A57",
-                ].map((c) => (
+          )}
+          {["transaction", "contribution"].includes(editor.type) && (
+            <Field label="Дата">
+              <input
+                required
+                type="date"
+                name="entryDate"
+                onInput={(e) => setDate(e.currentTarget.value)}
+                min={
+                  editor.type === "contribution" ? editor.goal.start : undefined
+                }
+                max={
+                  editor.type === "contribution" ? editor.goal.end : undefined
+                }
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+              />
+            </Field>
+          )}
+          {["budget", "goal"].includes(editor.type) && (
+            <Field label="Период">
+              <select
+                value={period}
+                onChange={(e) => {
+                  const p = e.target.value as Period;
+                  setPeriod(p);
+                  if (editor.type === "goal") {
+                    const [s, en] = range(p, start);
+                    setStart(s);
+                    setEnd(en);
+                  }
+                }}
+              >
+                {(Object.keys(periodNames) as Period[])
+                  .filter(
+                    (p) =>
+                      p !== "day" && (editor.type !== "goal" || p !== "week"),
+                  )
+                  .map((p) => (
+                    <option key={p} value={p}>
+                      {periodNames[p]}
+                    </option>
+                  ))}
+              </select>
+            </Field>
+          )}
+          {editor.type === "budget" && (
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={enabled}
+                onChange={(e) => setEnabled(e.target.checked)}
+              />{" "}
+              Лимит включён
+            </label>
+          )}
+          {editor.type === "goal" && (
+            <div className="two-grid">
+              <Field label="Начало">
+                <input
+                  required
+                  type="date"
+                  value={start}
+                  onChange={(e) => setStart(e.target.value)}
+                />
+              </Field>
+              <Field label="Завершение">
+                <input
+                  required
+                  type="date"
+                  min={start}
+                  value={end}
+                  onChange={(e) => setEnd(e.target.value)}
+                />
+              </Field>
+            </div>
+          )}
+          {["transaction", "goal", "contribution"].includes(editor.type) && (
+            <Field label="Комментарий · необязательно">
+              <textarea
+                rows={3}
+                maxLength={2000}
+                placeholder="Пара слов для себя"
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+              />
+            </Field>
+          )}
+          {editor.type === "category" && (
+            <>
+              <Field label="Иконка">
+                <input
+                  placeholder="Поиск: кофе, дом, gift…"
+                  value={iconSearch}
+                  onChange={(e) => setIconSearch(e.target.value)}
+                />
+                <div className="icon-catalog">
+                  {iconNames
+                    .filter((n) => {
+                      const label =
+                        initial().categories.find((c) => c.icon === n)?.name ||
+                        "";
+                      return (n + " " + label)
+                        .toLowerCase()
+                        .includes(iconSearch.toLowerCase());
+                    })
+                    .map((n) => (
+                      <button
+                        type="button"
+                        title={n}
+                        aria-label={n}
+                        key={n}
+                        className={n === icon ? "selected" : ""}
+                        onClick={() => setIcon(n)}
+                      >
+                        <Icon name={n} />
+                      </button>
+                    ))}
+                </div>
+              </Field>
+              <Field label="Цвет">
+                <div className="swatches">
+                  {[
+                    "#83A994",
+                    "#D1AD76",
+                    "#8FA7BF",
+                    "#B69DC0",
+                    "#C99485",
+                    "#9BAA78",
+                    "#7AACA7",
+                    "#C76556",
+                    "#276A57",
+                  ].map((c) => (
+                    <button
+                      type="button"
+                      aria-label={`Цвет ${c}`}
+                      key={c}
+                      style={{ background: c }}
+                      className={c === color ? "selected" : ""}
+                      onClick={() => setColor(c)}
+                    >
+                      {c === color && <I.Check size={17} />}
+                    </button>
+                  ))}
+                  <input
+                    type="color"
+                    aria-label="Свой цвет"
+                    value={color}
+                    onChange={(e) => setColor(e.target.value)}
+                  />
+                </div>
+              </Field>
+              <div className="category-preview">
+                <CatIcon
+                  cat={{
+                    id: "preview",
+                    name,
+                    type: kind as Kind,
+                    icon,
+                    color,
+                    archived: false,
+                  }}
+                />
+                <strong>{name || "Ваша категория"}</strong>
+                <small>Предпросмотр</small>
+              </div>
+              {linked && (
+                <small>
+                  Тип категории закреплён за её операциями или лимитами. Для
+                  сохранения истории используйте архив.
+                </small>
+              )}
+            </>
+          )}
+
+          {item && (
+            <div className="editor-danger">
+              {editor.type === "category" && cat ? (
+                <>
                   <button
                     type="button"
-                    aria-label={`Цвет ${c}`}
-                    key={c}
-                    style={{ background: c }}
-                    className={c === color ? "selected" : ""}
-                    onClick={() => setColor(c)}
+                    className="text-btn"
+                    onClick={() =>
+                      onSave({
+                        ...data,
+                        categories: data.categories.map((c) =>
+                          c.id === cat.id ? { ...c, archived: !c.archived } : c,
+                        ),
+                      })
+                    }
                   >
-                    {c === color && <I.Check size={17} />}
+                    <I.Archive size={17} />
+                    {cat.archived ? "Восстановить из архива" : "Архивировать"}
                   </button>
-                ))}
-                <input
-                  type="color"
-                  aria-label="Свой цвет"
-                  value={color}
-                  onChange={(e) => setColor(e.target.value)}
-                />
-              </div>
-            </Field>
-            <div className="category-preview">
-              <CatIcon
-                cat={{
-                  id: "preview",
-                  name,
-                  type: kind as Kind,
-                  icon,
-                  color,
-                  archived: false,
-                }}
-              />
-              <strong>{name || "Ваша категория"}</strong>
-              <small>Предпросмотр</small>
+                  {!linked && (
+                    <button
+                      type="button"
+                      className="text-btn danger"
+                      onClick={() => {
+                        if (confirm("Удалить неиспользуемую категорию?"))
+                          onSave({
+                            ...data,
+                            categories: data.categories.filter(
+                              (c) => c.id !== cat.id,
+                            ),
+                          });
+                      }}
+                    >
+                      Удалить
+                    </button>
+                  )}
+                </>
+              ) : editor.type === "contribution" ? (
+                <button
+                  type="button"
+                  className="text-btn danger"
+                  onClick={() => {
+                    if (confirm("Удалить пополнение?"))
+                      onSave({
+                        ...data,
+                        goals: data.goals.map((g) =>
+                          g.id === editor.goal.id
+                            ? {
+                                ...g,
+                                contributions: g.contributions.filter(
+                                  (c) => c.id !== item.id,
+                                ),
+                              }
+                            : g,
+                        ),
+                      });
+                  }}
+                >
+                  Удалить пополнение
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="text-btn danger"
+                  onClick={() =>
+                    onDelete(
+                      editor.type === "transaction"
+                        ? "transactions"
+                        : editor.type === "budget"
+                          ? "budgets"
+                          : "goals",
+                      item.id,
+                    )
+                  }
+                >
+                  <I.Trash2 size={16} /> Удалить{" "}
+                  {editor.type === "transaction"
+                    ? "операцию"
+                    : editor.type === "budget"
+                      ? "лимит"
+                      : "цель"}
+                </button>
+              )}
             </div>
-            {linked && (
-              <small>
-                Тип категории закреплён за её операциями или лимитами. Для
-                сохранения истории используйте архив.
-              </small>
-            )}
-          </>
-        )}
-        {error && (
-          <p className="form-error" role="alert">
-            {error}
-          </p>
-        )}
+          )}
+        </div>
         <div className="modal-actions">
+          {error && (
+            <p className="form-error" role="alert">
+              {error}
+            </p>
+          )}
           <button type="button" className="btn secondary" onClick={onClose}>
             Отмена
           </button>
@@ -2964,91 +3077,6 @@ function EditorModal({
             <I.Check size={17} /> Сохранить
           </button>
         </div>
-        {item && (
-          <div className="editor-danger">
-            {editor.type === "category" && cat ? (
-              <>
-                <button
-                  type="button"
-                  className="text-btn"
-                  onClick={() =>
-                    onSave({
-                      ...data,
-                      categories: data.categories.map((c) =>
-                        c.id === cat.id ? { ...c, archived: !c.archived } : c,
-                      ),
-                    })
-                  }
-                >
-                  <I.Archive size={17} />
-                  {cat.archived ? "Восстановить из архива" : "Архивировать"}
-                </button>
-                {!linked && (
-                  <button
-                    type="button"
-                    className="text-btn danger"
-                    onClick={() => {
-                      if (confirm("Удалить неиспользуемую категорию?"))
-                        onSave({
-                          ...data,
-                          categories: data.categories.filter(
-                            (c) => c.id !== cat.id,
-                          ),
-                        });
-                    }}
-                  >
-                    Удалить
-                  </button>
-                )}
-              </>
-            ) : editor.type === "contribution" ? (
-              <button
-                type="button"
-                className="text-btn danger"
-                onClick={() => {
-                  if (confirm("Удалить пополнение?"))
-                    onSave({
-                      ...data,
-                      goals: data.goals.map((g) =>
-                        g.id === editor.goal.id
-                          ? {
-                              ...g,
-                              contributions: g.contributions.filter(
-                                (c) => c.id !== item.id,
-                              ),
-                            }
-                          : g,
-                      ),
-                    });
-                }}
-              >
-                Удалить пополнение
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="text-btn danger"
-                onClick={() =>
-                  onDelete(
-                    editor.type === "transaction"
-                      ? "transactions"
-                      : editor.type === "budget"
-                        ? "budgets"
-                        : "goals",
-                    item.id,
-                  )
-                }
-              >
-                <I.Trash2 size={16} /> Удалить{" "}
-                {editor.type === "transaction"
-                  ? "операцию"
-                  : editor.type === "budget"
-                    ? "лимит"
-                    : "цель"}
-              </button>
-            )}
-          </div>
-        )}
       </form>
     </Modal>
   );

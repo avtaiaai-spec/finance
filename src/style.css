@@ -1792,7 +1792,7 @@ dialog::backdrop {
     background: var(--accent);
     border-radius: 12px;
     color: #fff;
-    margin-top: -17px;
+    margin-top: 0;
   }
   .bottom-nav .add-nav {
     color: var(--accent);
@@ -2604,4 +2604,76 @@ html[data-palette="brown"][data-theme="dark"] {
     min-width: 0;
     min-height: 44px;
   }
+}
+
+/* Keep the search icon and text inside one shared field outline. */
+.search input:not([type="checkbox"]):not([type="file"]) {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+}
+.search > svg {
+  flex-shrink: 0;
+}
+.search:focus-within {
+  outline: 2px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  outline-offset: 2px;
+}
+
+/* Only fields scroll; the editor title and action bar stay visible. */
+dialog.editor-dialog {
+  top: calc(
+    var(--dialog-viewport-top, 0px) + var(--dialog-viewport-height, 100dvh) / 2
+  );
+  bottom: auto;
+  transform: translateY(-50%);
+  margin-top: 0;
+  margin-bottom: 0;
+  max-height: calc(
+    var(--dialog-viewport-height, 100dvh) -
+      max(12px, env(safe-area-inset-top, 0px)) -
+      max(12px, env(safe-area-inset-bottom, 0px))
+  );
+  overflow: hidden;
+  padding: 0;
+}
+dialog.editor-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+.editor-dialog > .modal-head {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 18px;
+  border-bottom: 1px solid var(--border);
+}
+.editor-dialog .editor-form {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: 0;
+  overflow: hidden;
+}
+.editor-fields {
+  display: grid;
+  gap: 20px;
+  padding: 18px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scroll-padding-block: 18px;
+}
+.editor-dialog .modal-actions {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 14px 18px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.editor-dialog .modal-actions .form-error {
+  flex-basis: 100%;
+  margin: 0;
 }
